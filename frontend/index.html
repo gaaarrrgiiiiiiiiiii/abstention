@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abstention ML | Risk-Aware Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="dashboard-container">
+        <!-- Hero Section -->
+        <header class="hero glass-panel">
+            <div class="hero-content">
+                <h1>Risk-Aware <span>Deep Learning</span></h1>
+                <p>Abstention Mechanism Results Dashboard</p>
+            </div>
+        </header>
+
+        <!-- KPI Cards -->
+        <section class="kpi-grid">
+            <div class="kpi-card glass-panel">
+                <h3>Best F1 Score</h3>
+                <div class="kpi-value" id="kpi-f1">--</div>
+                <div class="kpi-label" id="kpi-f1-model">Processing...</div>
+            </div>
+            <div class="kpi-card glass-panel">
+                <h3>Avg Coverage</h3>
+                <div class="kpi-value" id="kpi-cov">--</div>
+                <div class="kpi-label">Across Abstention Models</div>
+            </div>
+            <div class="kpi-card glass-panel">
+                <h3>Lowest Risk</h3>
+                <div class="kpi-value" id="kpi-risk">--</div>
+                <div class="kpi-label" id="kpi-risk-model">Processing...</div>
+            </div>
+            <div class="kpi-card glass-panel">
+                <h3>Total Memory Used</h3>
+                <div class="kpi-value" id="kpi-mem">--</div>
+                <div class="kpi-label">Peak RAM MB</div>
+            </div>
+        </section>
+
+        <!-- Main Chart Section -->
+        <section class="charts-row">
+            <div class="chart-container glass-panel">
+                <h2>Training Curves (Validation Loss)</h2>
+                <div class="canvas-wrapper">
+                    <canvas id="trainingCurvesChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-container glass-panel">
+                <h2>Risk vs Coverage Tradeoff</h2>
+                <div class="canvas-wrapper">
+                    <canvas id="riskCoverageChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bottom Rows -->
+        <section class="charts-row reverse-mobile">
+            <div class="chart-container glass-panel">
+                <h2>Class Distribution Overview</h2>
+                <div class="canvas-wrapper">
+                    <canvas id="classDistChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-container glass-panel">
+                <h2>Hardware Performance Simulation</h2>
+                <div class="canvas-wrapper">
+                    <canvas id="hardwareMetricsChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Model Comparison Table -->
+        <section class="table-section glass-panel">
+            <h2>Model Comparison Data</h2>
+            <div class="table-responsive">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Model Name</th>
+                            <th>Accuracy</th>
+                            <th>Coverage</th>
+                            <th>Selective Risk</th>
+                            <th>ECE</th>
+                            <th>F1 Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

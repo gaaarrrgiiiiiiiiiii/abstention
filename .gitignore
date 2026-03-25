@@ -1,0 +1,57 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# =========================
+# Virtual Environment
+# =========================
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# Dataset (too large for GitHub — 150MB)
+# =========================
+data/creditcard.csv
+data/*.csv
+
+# =========================
+# Trained Model Weights
+# =========================
+*.pth
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Misc
+# =========================
+*.log
+src/training_log.txt
+src/results/
+results/metrics.csv
+
+# Frontend generated data (regenerated from CSVs)
+frontend/data/results.json
