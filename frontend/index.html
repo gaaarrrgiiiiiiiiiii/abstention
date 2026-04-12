@@ -3,110 +3,260 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Abstention ML | Risk-Aware Dashboard</title>
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Abstention Classifier | Risk-Aware Fraud Detection</title>
+    <meta name="description" content="A deep learning-powered fraud detection system with abstention mechanism. Enter transaction features and receive risk-aware predictions.">
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-    <div class="blob blob-3"></div>
 
-    <div class="dashboard-container">
-        <!-- Hero Section -->
-        <header class="hero glass-panel">
-            <div class="hero-content">
-                <h1>Risk-Aware <span>Deep Learning</span></h1>
-                <p>Abstention Mechanism Results Dashboard</p>
-            </div>
-        </header>
+    <!-- Subtle decorative background elements -->
+    <div class="bg-grid"></div>
+    <div class="bg-accent bg-accent-1"></div>
+    <div class="bg-accent bg-accent-2"></div>
 
-        <!-- KPI Cards -->
-        <section class="kpi-grid">
-            <div class="kpi-card glass-panel">
-                <h3>Best F1 Score</h3>
-                <div class="kpi-value" id="kpi-f1">--</div>
-                <div class="kpi-label" id="kpi-f1-model">Processing...</div>
-            </div>
-            <div class="kpi-card glass-panel">
-                <h3>Avg Coverage</h3>
-                <div class="kpi-value" id="kpi-cov">--</div>
-                <div class="kpi-label">Across Abstention Models</div>
-            </div>
-            <div class="kpi-card glass-panel">
-                <h3>Lowest Risk</h3>
-                <div class="kpi-value" id="kpi-risk">--</div>
-                <div class="kpi-label" id="kpi-risk-model">Processing...</div>
-            </div>
-            <div class="kpi-card glass-panel">
-                <h3>Total Memory Used</h3>
-                <div class="kpi-value" id="kpi-mem">--</div>
-                <div class="kpi-label">Peak RAM MB</div>
-            </div>
-        </section>
-
-        <!-- Main Chart Section -->
-        <section class="charts-row">
-            <div class="chart-container glass-panel">
-                <h2>Training Curves (Validation Loss)</h2>
-                <div class="canvas-wrapper">
-                    <canvas id="trainingCurvesChart"></canvas>
+    <!-- ============================================================ -->
+    <!-- HEADER -->
+    <!-- ============================================================ -->
+    <header id="site-header">
+        <div class="header-inner">
+            <div class="logo-group">
+                <div class="logo-icon">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="2" y="2" width="24" height="24" rx="6" stroke="currentColor" stroke-width="2"/>
+                        <path d="M9 14L12.5 17.5L19 11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                 </div>
+                <h1>Abstention Classifier</h1>
             </div>
-            <div class="chart-container glass-panel">
-                <h2>Risk vs Coverage Tradeoff</h2>
-                <div class="canvas-wrapper">
-                    <canvas id="riskCoverageChart"></canvas>
-                </div>
-            </div>
-        </section>
+            <nav class="header-nav">
+                <a href="#predict-section" class="nav-link active" data-target="predict-section">Predict</a>
+                <a href="#results-section" class="nav-link" data-target="results-section">Results</a>
+                <a href="#guide-section" class="nav-link" data-target="guide-section">Testing Guide</a>
+            </nav>
+        </div>
+    </header>
 
-        <!-- Bottom Rows -->
-        <section class="charts-row reverse-mobile">
-            <div class="chart-container glass-panel">
-                <h2>Class Distribution Overview</h2>
-                <div class="canvas-wrapper">
-                    <canvas id="classDistChart"></canvas>
-                </div>
+    <!-- ============================================================ -->
+    <!-- MAIN CONTENT -->
+    <!-- ============================================================ -->
+    <main id="main-content">
+
+        <!-- =============================== -->
+        <!-- HERO / INTRO BANNER -->
+        <!-- =============================== -->
+        <section class="hero-banner" id="hero-banner">
+            <div class="hero-text">
+                <h2>Risk-Aware Deep Learning</h2>
+                <p>
+                    Enter credit card transaction features and the model will predict whether the transaction is
+                    <strong>Legitimate</strong>, <strong>Fraudulent</strong>, or if it should <strong>Abstain</strong>
+                    from making a decision and defer to human review.
+                </p>
             </div>
-            <div class="chart-container glass-panel">
-                <h2>Hardware Performance Simulation</h2>
-                <div class="canvas-wrapper">
-                    <canvas id="hardwareMetricsChart"></canvas>
+            <div class="hero-stats" id="hero-stats">
+                <div class="stat-pill">
+                    <span class="stat-label">Input Features</span>
+                    <span class="stat-value" id="stat-features">--</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-label">Output Classes</span>
+                    <span class="stat-value">3</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-label">Model Status</span>
+                    <span class="stat-value" id="stat-status">Checking...</span>
                 </div>
             </div>
         </section>
 
-        <!-- Model Comparison Table -->
-        <section class="table-section glass-panel">
-            <h2>Model Comparison Data</h2>
-            <div class="table-responsive">
-                <table id="resultsTable">
+        <!-- =============================== -->
+        <!-- PREDICTION SECTION -->
+        <!-- =============================== -->
+        <section class="content-section" id="predict-section">
+            <div class="section-header">
+                <h2>Transaction Prediction</h2>
+                <p>Enter the 30 feature values for a credit card transaction. Use the sample data buttons to populate realistic test vectors.</p>
+            </div>
+
+            <!-- Sample Data Buttons -->
+            <div class="sample-controls" id="sample-controls">
+                <span class="sample-label">Load Sample Data:</span>
+                <div class="sample-buttons" id="sample-buttons">
+                    <!-- Populated dynamically from /api/sample-data -->
+                </div>
+                <button class="btn btn-outline" id="btn-clear" type="button">Clear All</button>
+            </div>
+
+            <!-- Feature Input Form -->
+            <form id="predict-form" autocomplete="off">
+                <div class="feature-grid" id="feature-grid">
+                    <!-- Populated dynamically from /api/features -->
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="btn-predict">
+                        <span class="btn-text">Run Prediction</span>
+                        <span class="btn-loader" id="btn-loader"></span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Prediction Result -->
+            <div class="result-panel" id="result-panel" style="display:none;">
+                <div class="result-header" id="result-header">
+                    <div class="result-icon" id="result-icon"></div>
+                    <div class="result-title">
+                        <h3 id="result-label">--</h3>
+                        <p id="result-decision">--</p>
+                    </div>
+                </div>
+
+                <div class="confidence-bars" id="confidence-bars">
+                    <div class="confidence-row">
+                        <span class="conf-label">Legitimate</span>
+                        <div class="conf-track">
+                            <div class="conf-fill conf-legit" id="conf-legit" style="width:0%"></div>
+                        </div>
+                        <span class="conf-value" id="conf-legit-val">0%</span>
+                    </div>
+                    <div class="confidence-row">
+                        <span class="conf-label">Fraud</span>
+                        <div class="conf-track">
+                            <div class="conf-fill conf-fraud" id="conf-fraud" style="width:0%"></div>
+                        </div>
+                        <span class="conf-value" id="conf-fraud-val">0%</span>
+                    </div>
+                    <div class="confidence-row">
+                        <span class="conf-label">Abstain</span>
+                        <div class="conf-track">
+                            <div class="conf-fill conf-abstain" id="conf-abstain" style="width:0%"></div>
+                        </div>
+                        <span class="conf-value" id="conf-abstain-val">0%</span>
+                    </div>
+                </div>
+
+                <div class="result-recommendation" id="result-recommendation">
+                    <h4>Recommendation</h4>
+                    <p id="recommendation-text">--</p>
+                </div>
+
+                <!-- Confidence Doughnut Chart -->
+                <div class="result-chart-wrapper">
+                    <canvas id="confidenceChart" width="260" height="260"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================== -->
+        <!-- RESULTS / HISTORY SECTION -->
+        <!-- =============================== -->
+        <section class="content-section" id="results-section">
+            <div class="section-header">
+                <h2>Prediction History</h2>
+                <p>All predictions made during this session are logged below for comparison.</p>
+            </div>
+
+            <div class="history-table-wrapper">
+                <table id="history-table">
                     <thead>
                         <tr>
-                            <th>Model Name</th>
-                            <th>Accuracy</th>
-                            <th>Coverage</th>
-                            <th>Selective Risk</th>
-                            <th>ECE</th>
-                            <th>F1 Score</th>
+                            <th>#</th>
+                            <th>Prediction</th>
+                            <th>Legitimate %</th>
+                            <th>Fraud %</th>
+                            <th>Abstain %</th>
+                            <th>Decision</th>
+                            <th>Time</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <!-- Populated by JS -->
+                    <tbody id="history-tbody">
+                        <!-- Populated dynamically -->
                     </tbody>
                 </table>
+                <div class="empty-state" id="history-empty">
+                    <p>No predictions yet. Submit a transaction above to see results here.</p>
+                </div>
             </div>
         </section>
 
-    </div>
+        <!-- =============================== -->
+        <!-- TESTING GUIDE SECTION -->
+        <!-- =============================== -->
+        <section class="content-section" id="guide-section">
+            <div class="section-header">
+                <h2>Testing Guide</h2>
+                <p>How to test and interpret predictions from the Abstention Classifier.</p>
+            </div>
 
-    <script src="js/charts.js"></script>
+            <div class="guide-grid">
+                <div class="guide-card">
+                    <div class="guide-number">1</div>
+                    <h3>Understanding the Features</h3>
+                    <p>
+                        The model expects <strong>30 numerical features</strong> per transaction:
+                    </p>
+                    <ul>
+                        <li><strong>Time</strong> &mdash; Seconds elapsed since the first transaction in the dataset (range: 0 to ~172,000).</li>
+                        <li><strong>V1 through V28</strong> &mdash; Principal components obtained via PCA transformation for anonymization. These typically range between -5.0 and +5.0, though fraud samples may have extreme values up to +/-30.</li>
+                        <li><strong>Amount</strong> &mdash; The monetary value of the transaction in Euros (range: 0 to ~25,000).</li>
+                    </ul>
+                </div>
+
+                <div class="guide-card">
+                    <div class="guide-number">2</div>
+                    <h3>Using Sample Data</h3>
+                    <p>
+                        Click the <strong>sample data buttons</strong> above the form to auto-fill with realistic test vectors:
+                    </p>
+                    <ul>
+                        <li><strong>Legitimate</strong> &mdash; Standard transaction with normal PCA values. Expect a high confidence Legitimate prediction.</li>
+                        <li><strong>Fraud-like</strong> &mdash; Values with large deviations in V1-V28 and a low Amount. Should trigger a Fraud prediction.</li>
+                        <li><strong>Uncertain</strong> &mdash; Borderline features where multiple classes have similar probabilities. The model may choose to Abstain.</li>
+                    </ul>
+                </div>
+
+                <div class="guide-card">
+                    <div class="guide-number">3</div>
+                    <h3>Interpreting Results</h3>
+                    <p>
+                        After prediction, examine three outputs:
+                    </p>
+                    <ul>
+                        <li><strong>Prediction Label</strong> &mdash; Legitimate (class 0), Fraud (class 1), or Abstain (class 2).</li>
+                        <li><strong>Confidence Scores</strong> &mdash; Softmax probabilities for each class. Higher means the model is more certain.</li>
+                        <li><strong>Decision Status</strong> &mdash; "Should Decide" indicates the model committed to its prediction. "Should Defer" means the model abstained and recommends human review.</li>
+                    </ul>
+                </div>
+
+                <div class="guide-card">
+                    <div class="guide-number">4</div>
+                    <h3>Experimentation Tips</h3>
+                    <p>
+                        To explore model behaviour:
+                    </p>
+                    <ul>
+                        <li>Start with a sample, then modify individual features to observe how predictions shift.</li>
+                        <li>Try extreme values (e.g., V14 = -15.0 or Amount = 10000) to push the model towards fraud.</li>
+                        <li>Gradually increase uncertainty by setting V1-V5 values close to zero &mdash; the model may start abstaining.</li>
+                        <li>Compare the confidence distribution in the doughnut chart for each scenario.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ============================================================ -->
+    <!-- FOOTER -->
+    <!-- ============================================================ -->
+    <footer id="site-footer">
+        <p>Abstention Classifier &mdash; Risk-Aware Deep Learning for Fraud Detection</p>
+    </footer>
+
     <script src="js/app.js"></script>
 </body>
 </html>

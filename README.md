@@ -83,13 +83,16 @@ abstention/
 │   ├── metrics.py              # Coverage, selective risk, ECE calculations
 │   ├── plots.py                # Phase 5: Matplotlib visualizations
 │   └── run_all.py              # Master pipeline orchestrator
+├── api/
+│   └── app.py                  # Flask REST API for serving predictions
 ├── results/                    # Training metrics CSVs + plots (generated)
-├── frontend/                   # Interactive dashboard (HTML/CSS/JS)
-│   ├── index.html
-│   ├── css/style.css
-│   ├── js/app.js
-│   ├── js/charts.js
+├── frontend/                   # Prediction UI (HTML/CSS/JS + Chart.js)
+│   ├── index.html              # Dynamic prediction form & results
+│   ├── css/style.css           # White & blue design system
+│   ├── js/app.js               # API integration & rendering
+│   ├── js/charts.js            # Dashboard chart logic
 │   └── data/aggregate.py       # CSV → JSON converter
+├── enhancements.md             # Production readiness roadmap
 ├── .gitignore
 └── README.md
 ```
@@ -156,8 +159,22 @@ This executes all 5 phases sequentially:
 
 > ⏱️ **Total: ~30 minutes on CPU**
 
-### 6. View the Dashboard
+### 6. Install API Dependencies
 
+```bash
+pip install flask flask-cors
+```
+
+### 7. Launch the Prediction Frontend
+
+You need **two terminals** — one for the API, one for the frontend:
+
+**Terminal 1 — Flask API (port 5000):**
+```bash
+python api/app.py
+```
+
+**Terminal 2 — Frontend Server (port 8000):**
 ```bash
 cd frontend
 python -m http.server 8000
@@ -223,15 +240,49 @@ The pipeline automatically generates:
 
 ---
 
-## 🌐 Interactive Dashboard
+## 🌐 Prediction Frontend
 
-A glassmorphism-styled dark-theme dashboard built with vanilla HTML/CSS/JS + Chart.js:
+A clean, professional prediction interface built with vanilla HTML/CSS/JS + Chart.js:
 
-- **KPI Cards** — Best F1, avg coverage, lowest risk, peak memory
-- **Training Curves** — Interactive line charts for all experiments
-- **Risk-Coverage Scatter** — Bubble chart comparing all models
-- **Hardware Performance** — Grouped bar chart (memory + throughput)
-- **Model Comparison Table** — Color-coded metrics
+- **Dynamic Form** — All 30 feature inputs are generated dynamically from the API (no hardcoded values)
+- **Sample Data Buttons** — Pre-built test vectors for Legitimate, Fraud, and Edge Case transactions
+- **Confidence Visualization** — Animated progress bars + doughnut chart showing class probabilities
+- **Prediction History** — Session-based table logging all predictions with timestamps
+- **Testing Guide** — Built-in documentation explaining features, usage, and result interpretation
+
+### Design
+
+- **Color Palette**: White and blue (10-shade blue spectrum)
+- **Typography**: Times New Roman (serif)
+- **Layout**: Responsive grid, sticky header, smooth scroll navigation
+
+### Prediction API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/health` | GET | Model and scaler status check |
+| `/api/features` | GET | Returns feature names dynamically |
+| `/api/sample-data` | GET | Returns 3 realistic test vectors |
+| `/api/predict` | POST | Accepts 30 features, returns prediction + confidence |
+
+### Testing with Values
+
+1. Click **"Typical Legitimate Transaction"** → Expect ~99.97% Legitimate
+2. Click **"Suspicious Fraud-like Transaction"** → Expect ~99.67% Fraud
+3. Click **"Edge Case (Uncertain)"** → Observe confidence distribution
+4. Modify individual features (e.g., set V14 = -15.0) to explore model sensitivity
+
+---
+
+## 🔮 Future Enhancements
+
+See [`enhancements.md`](enhancements.md) for a comprehensive production readiness roadmap covering:
+
+- Model serving infrastructure (Docker, Gunicorn, model versioning)
+- API robustness (input validation, rate limiting, logging)
+- Model improvements (ensemble, calibration, drift detection)
+- Frontend features (batch upload, SHAP explainability, dark mode)
+- Security, monitoring, CI/CD, and compliance
 
 ---
 

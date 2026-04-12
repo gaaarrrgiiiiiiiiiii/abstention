@@ -46,12 +46,18 @@ Thumbs.db
 desktop.ini
 
 # =========================
-# Misc
+# Logs
 # =========================
 *.log
 src/training_log.txt
+
+# =========================
+# Generated Results (reproduced by running the pipeline)
+# =========================
 src/results/
 results/metrics.csv
 
+# =========================
 # Frontend generated data (regenerated from CSVs)
+# =========================
 frontend/data/results.json
