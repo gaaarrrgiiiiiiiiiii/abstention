@@ -31,30 +31,35 @@ DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'creditcard.cs
 # Feature names for the credit card dataset
 FEATURE_NAMES = ["Time"] + [f"V{i}" for i in range(1, 29)] + ["Amount"]
 
+SCALER_PATH = os.path.join(os.path.dirname(__file__), '..', 'scaler.joblib')
+
 model = None
 scaler = None
 
 
 def load_model_and_scaler():
-    """Load the trained abstention model and fit the scaler on training data."""
+    """Load the trained abstention model and the fitted scaler."""
     global model, scaler
 
-    # --- Load and fit the scaler on training data ---
-    # We need the same preprocessing the model was trained with.
-    from sklearn.preprocessing import StandardScaler
-    import pandas as pd
+    # --- Load scaler (prefer persisted joblib, fallback to CSV) ---
+    if os.path.exists(SCALER_PATH):
+        import joblib
+        scaler = joblib.load(SCALER_PATH)
+        print(f"Scaler loaded from {SCALER_PATH}")
+    else:
+        print("WARNING: scaler.joblib not found, falling back to CSV fitting...")
+        from sklearn.preprocessing import StandardScaler
+        import pandas as pd
+        from sklearn.model_selection import train_test_split
 
-    print("Loading dataset to fit scaler...")
-    data = pd.read_csv(DATA_PATH)
-    X = data.drop("Class", axis=1).values
+        data = pd.read_csv(DATA_PATH)
+        X = data.drop("Class", axis=1).values
+        y = data["Class"].values
+        X_train, _, _, _ = train_test_split(X, y, test_size=0.30, stratify=y, random_state=42)
 
-    from sklearn.model_selection import train_test_split
-    y = data["Class"].values
-    X_train, _, _, _ = train_test_split(X, y, test_size=0.30, stratify=y, random_state=42)
-
-    scaler = StandardScaler()
-    scaler.fit(X_train)
-    print(f"Scaler fitted on {len(X_train)} training samples.")
+        scaler = StandardScaler()
+        scaler.fit(X_train)
+        print(f"Scaler fitted on {len(X_train)} training samples (CSV fallback).")
 
     # --- Load the model ---
     model = AbstentionModel(input_dim=30, dropout=0.0).to(DEVICE)

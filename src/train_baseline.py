@@ -5,9 +5,11 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import csv
 import os
+import joblib
 
-from dataset import load_data, FraudDataset
+from dataset import load_data, FraudDataset, resolve_path
 from baseline_model import BaselineModel
+from seed import set_seed
 
 
 def evaluate_metrics(model, loader, criterion, device):
@@ -37,8 +39,13 @@ def evaluate_metrics(model, loader, criterion, device):
     return avg_loss, acc, prec, rec, f1
 
 
-def train_baseline():
+def train_baseline(seed=42):
     """Train the baseline model with early stopping, LR scheduling, and per-epoch metrics."""
+
+    # ----------------------------
+    # Reproducibility
+    # ----------------------------
+    set_seed(seed)
 
     # ----------------------------
     # Configuration
@@ -56,7 +63,12 @@ def train_baseline():
     # ----------------------------
     # Load Data
     # ----------------------------
-    X_train, X_val, X_test, y_train, y_val, y_test = load_data("data/creditcard.csv")
+    X_train, X_val, X_test, y_train, y_val, y_test, scaler = load_data("data/creditcard.csv")
+
+    # Persist the fitted scaler for API serving (avoids re-reading CSV)
+    scaler_path = resolve_path("scaler.joblib")
+    joblib.dump(scaler, scaler_path)
+    print(f"Scaler saved to {scaler_path}")
 
     train_dataset = FraudDataset(X_train, y_train)
     val_dataset = FraudDataset(X_val, y_val)
@@ -95,8 +107,8 @@ def train_baseline():
     # ----------------------------
     # Metrics CSV
     # ----------------------------
-    os.makedirs("results", exist_ok=True)
-    csv_path = "results/baseline_training_metrics.csv"
+    os.makedirs(resolve_path("results"), exist_ok=True)
+    csv_path = resolve_path("results/baseline_training_metrics.csv")
     csv_file = open(csv_path, "w", newline="")
     writer = csv.writer(csv_file)
     writer.writerow([
@@ -160,7 +172,7 @@ def train_baseline():
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0
-            torch.save(model.state_dict(), "baseline_model.pth")
+            torch.save(model.state_dict(), resolve_path("baseline_model.pth"))
         else:
             patience_counter += 1
             if patience_counter >= PATIENCE:
@@ -172,7 +184,7 @@ def train_baseline():
     print("=" * 80)
     print(f"Best validation loss: {best_val_loss:.6f}")
     print(f"Metrics saved to: {csv_path}")
-    print(f"Best model saved to: baseline_model.pth")
+    print(f"Best model saved to: {resolve_path('baseline_model.pth')}")
     print("=" * 80)
 
     return best_val_loss

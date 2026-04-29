@@ -1,0 +1,440 @@
+\documentclass{ieeeaccess}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption} % add in preamble
+\usepackage{textcomp}
+\usepackage{caption}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+\history{}
+\doi{}
+
+\title{A Hybrid SGP4–LSTM Framework for Space Debris Collision Prediction with Machine Learning-Based Risk Assessment}
+\author{\uppercase{Dr. Annie Uthra}\authorrefmark{1}, \IEEEmembership{Fellow, IEEE},
+\uppercase{Ujjwal Chaudhary\authorrefmark{2}, and Gargi Thapa,
+Jr}.\authorrefmark{3},}
+\address[1]{SRM Instutite of Science and Technology, Kattankulathur, Chennai (e-mail: annieu@srmist.edu.in)}
+\address[2]{Department of Computational Intelligence}
+
+\markboth
+{Author \headeretal: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS}
+{Author \headeretal: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS}
+
+\corresp{Corresponding author: First A. Author (e-mail: author@ boulder.nist.gov).}
+
+\begin{abstract}
+Space debris has emerged as a significant challenge to the sustainability of space activities, threatening the survival of active satellites, the International Space Station as well as future missions. The Kessler Syndrome of collision events and cascading effects is more likely to occur due to tens of thousands of trackable objects in Low Earth Orbit, and millions of smaller pieces that could be colliding with each other. Current Space Situational Awareness systems are heavily based on deterministic orbital propagators like Simplified General Perturbations-4 that have a cumulative prediction error to environmental perturbation and is not as adaptive as it could be. In this paper, a hybrid SGP4LSTM predictive model is introduced that predicts space debris collision and evaluates the risk in real-time. The approach proposed combines physics-based propagation model with a Long Short-Term Memory network that trains on residual errors to improve the accuracy of trajectory prediction without breaking physical consistency. The spatial indexing KDTree-based nearest neighbor search is used to provide scalability to large-scale conjunction analysis. Furthermore, a machine learning-based risk assessment module with Extreme Gradient Boosting classifies possible collision events according to relative distance, velocity and geometric parameters. The system facilitates live view with an interactive visualization interface. The experimental outcomes show the superiority of the prediction accuracy and computational efficiency over the traditional approaches, which means that the framework can be applied to the next-generation space debris monitoring and collision avoidance systems.
+\end{abstract}
+
+\begin{keywords}
+Collision avoidance, hybrid modeling, long short-term memory, machine learning, orbital prediction, space debris, space situational awareness, SGP4, XGBoost
+\end{keywords}
+
+\titlepgskip=-15pt
+
+\maketitle
+
+\section{Introduction}
+\label{sec:introduction}
+\PARstart{T}{he} fast growth of space operations in the last ten years has greatly augmented the form of objects in the orbit of earth, especially in Low Earth Orbit (LEO). The increasing use of mega-constellations, non-functional satellites, rocket debris, and fragmentation debris has turned the orbital space into a very crowded and dynamic space. This growth has increased the chances of in-orbit collisions, which seems to pose severe risks to the operational satellites, human spaceflight missions and vital space-based infrastructure \cite{b2}, \cite{b25}.
+
+Even at millimeter sizes, space debris can travel at velocities that are higher than 78 km /s and are capable of causing enough kinetic energy to cause severe damage or destruction to active spacecraft. One of the biggest fears related to this phenomenon is the Kessler Syndrome, which is a chain reaction whereby the collisions create more debris, and thus, enhance the risk of further collisions happening again and again. The recent research reports that some orbital space areas are nearing critical density levels and therefore proper monitoring and collision avoidance systems are very vital in the long-term sustainability of space operations \cite{b2}.
+
+The existing Space Situational Awareness (SSA) systems are mainly based on deterministic physics-based models like Simplified General Perturbations-4 (SGP4) to propagate orbits. Although these models offer a good analytical basis, they are affected by cumulative errors in prediction because of atmospheric drag and solar radiation force and gravitational anomalies on the environment, among others, \cite{b4}, \cite{b5}. Consequently, purely physics-based methods tend to be less accurate when making predictions with longer horizons, which limits their usefulness in real time collision prediction.
+
+In order to overcome these shortcomings, more recent studies have investigated how the methods of artificial intelligence can be applied to traditional orbital mechanics. Convolutional neural networks, recurrent architectures, and other machine learning and deep learning models have shown potential applications in space object detection and trajectory prediction \cite{b11}, \cite{b7}, \cite{b14}. Nevertheless, most of the current methods either completely depend on data-driven models, which can be physically violating, or have high computation requirements, making them impractical to scale to large-scale conjunction analysis.
+
+This paper presents a hybrid SGP4-LSTM model to predict and estimate the risk of collision during space debris in real-time. The method uses SGP4 as a base propagator, but a Long Short-Term Memory (LSTM) network to learn and correct the residual prediction errors to enhance the accuracy of the trajectory without sacrificing physical consistency. Hybrid approaches to modeling of similar type have proven to be effective in improving the accuracy of orbital prediction \cite{b1}. A spatial indexing technique based on a KDTree is used to provide a fast nearest-neighbor search to make the computations in a large-scale setting efficient. Moreover, it involves an Extreme Gradient Boosting (XGBoost) model that is used to classify risks and their clever classification according to their relative distance, speed, and collision geometry \cite{b17}.
+
+The outlined framework would offer a scalable, precise, and intelligent system to address next-generation Space Situational Awareness systems and allow better collision prediction and proactive decision-making in the case of Space debris mitigation.
+
+
+\section{Related Works}
+Traditionally, Space Situational Awareness (SSA) has based its application on physics-based models to provide orbit propagation and collision analysis. The popularity of the Simplified General Perturbations-4 (SGP4) model can be attributed to the fact that it is easy to compute and also, it has the ability of utilizing Two-Line Element (TLE) data \cite{b4}, \cite{b6}. This is however less true over time as the modeled perturbations such as atmospheric drag and solar radiation pressure are unmodelled, which makes the model less accurate over time period \cite{b5}. Studies of space debris environments, also indicate the increasing complexity of orbital dynamics and the inefficiency of traditional tracking systems in high density orbital regions.
+
+Machine learning methods have become more and more popular in order to improve the detection and prediction capabilities. Deep learning space object detection models using radar and optical sensors including Convolutional Neural Networks (CNNs) have been deployed and demonstrated improved performance in high noise and low visibility conditions, along with reduced visibility space environments, as compared to traditional FFT-based models (see Fig. 2) (b10), (b11). In addition, other recurrent networks such as Long Short-Term Memory (LSTM) networks have been identified to be effective in capturing time-dependent relationships to predict orbits with the help of past information on the same topic of interest \cite{b7}. Although these developments have been made, purely data-driven techniques are typically not physically interpretable and can not perform well in the dynamic orbital regime.
+
+The focus of recent studies has been on the hybrid methods that integrate physics-based models and the learning-based corrections. Physics-Informed Neural Networks (PINNs) and hybrid SGP4-based propagators have been demonstrated to have more accurate predictions that are consistent to orbital mechanics \cite{b18}, \cite{b1}. In addition, machine learning applications have been applied concerning collision risk assessment with introduction of parameters such as relative velocity and geometry of their trajectory to improve the accuracy of the classification of collision risks. However, there are still scalability and real-time performance, particularly when performing conjunction analysis in large scale.
+
+According to these limitations, the research proposes a hybrid SGP4-LSTM model that considers the idea of residual learning to rectify the trajectories, efficient spatial indexing to offer scalable collision detection, and risk assessment through applying machine learning to make superior choices in SSA systems.
+
+\section{Methodology}
+\subsection{Problem Formulation}
+The growing number of space objects in Low Earth Orbit (LEO) requires precise and scaleable means of forecasting the possible collision opportunities. Using Two-Line Element (TLE) data, represent a set of N space objects. This is to find their future spatial position and observing the conjunction events using proximity parameters and relative motion properties.
+
+Conventional methods make use of deterministic orbit propagators like Simplified General Perturbations-4 (SGP4), which approximates the location of objects by means of analytic orbital representations. However, SGP4 experiences accumulation prediction error due to atmospheric perturbations that include atmospheric drag, solar radiation pressure and gravitational irregularities \cite{b5}. These errors increase over time, thus making predictions in the long term less accurate.
+
+To overcome this drawback, the issue is redefined as a hybrid residual learning problem, in which a data-driven model is trained to fix the prediction error of the physics-based propagator.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=3.2in]{fig1.png}  % �� control size here
+\caption{Residual learning concept for hybrid orbit prediction. The LSTM model estimates the residual error ($\Delta_{LSTM}$) between the SGP4 baseline and the true orbit, and corrects the prediction}
+\label{fig:residual}
+\end{figure}
+
+\noindent \textbf{Residual Learning Formulation:}
+
+Let:
+\begin{itemize}
+    \item $x_t^{SGP4}$ denote the predicted position at time $t$
+    \item $x_t^{true}$ denote the true position
+    \item $\Delta x_t$ denote the residual error
+\end{itemize}
+
+The residual is defined as:
+\begin{equation}
+\Delta x_t = x_t^{true} - x_t^{SGP4}
+\end{equation}
+
+The corrected prediction is given by:
+\begin{equation}
+x_t^{hybrid} = x_t^{SGP4} + \Delta x_t
+\end{equation}
+
+This formulation ensures that the system retains physical consistency while improving prediction accuracy through learned corrections.
+
+\subsection{System Architecture}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{architecture diagram.png}
+\caption{System architecture of the proposed framework. The pipeline integrates physics-based orbit propagation using SGP4 with LSTM-based residual error correction, followed by KD-tree spatial indexing for efficient conjunction detection, XGBoost-based risk classification, and PPO-based collision avoidance.}
+\label{fig:architecture}
+\end{figure*}
+
+As shown in Fig.~\ref{fig:architecture}, the proposed system is structured as a multi-step pipeline which integrates physics-based modeling, machine learning and powerful spatial computation to enable one to predict space debris collisions in real-time. Fig. 3 depicts the overall system design and illustrates the end to end flow of data of orbital data ingestion to collision risk assessment and visualization.
+
+Two-Line Element (TLE) data is collected at publicly available sources first and propagated with the assistance of Simplified General Perturbations-4 (SGP4) model to generate standard orbital paths in the Earth-Centered Inertial (ECI) co-ordinates \cite{b6}. Though SGP4 is computationally efficient, it can propagate with time due to unmodeled perturbations.
+
+To address this shortcoming, the predicted trajectories are processed in a hybrid Long Short-Term Memory (LSTM) drift correction block, which learns time-dependent correlations in orbital motions and estimates the error in the SGP4 predictions \cite{b7}. The state vectors obtained after the correction by this step are less erroneous in the trajectory, and are physically consistent.
+
+In order to conduct scalable conjunction analysis the fixed orbital positions are keyed in a spatial data structure of KDTree. This enables nearest-neighbor searches to be carried out effectively, with the complexity of collision candidate identification reduced to a logarithmic order. The candidates of conjunctions obtained are then run through an Extreme Gradient Boosting (XGBoost) classifier which is an assessment of the risk of collision, based on such factors as relative distance, velocity and geometry of the trajectory \cite{b17}. The classifier provides categorical risk levels, including SAFE, MEDIUM and HIGH risk warnings.
+
+In risky situations, the optional reinforcement learning-based module, which uses Proximal Policy Optimization (PPO), produces optimal collision avoidance maneuvers as delta-velocity commands ($\Delta V$). Such outputs are sent to working satellites to do a possible trajectory correction.
+
+Finally, the processed orbital states as shown in Fig.~\ref{fig:ui} conjunction alerts and risk classifications are modeled with an interactive frontend layer, which consists of a 3D WebGL-based orbital engine and a 2D tactical radar module. This enables real time monitoring, analysis and decision support to the operators.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=3.2in]{Fig_UI.png}
+\caption{Real-time visualization interface of the OrbitalGuard AI system showing active satellites, debris tracking, and high-risk conjunction alerts. The interface integrates 3D orbital visualization with live telemetry and risk analytics for operator decision support.}
+\label{fig:ui}
+\end{figure}
+
+\subsection{Model Design}
+
+The suggested framework combines several computational frameworks such as physics-based propagation, sequential learning, spatial optimization, and machine learning based classification to provide the accurate and scalable prediction of space debris collisions.
+
+\subsubsection{SGP4 Orbital Propagation Model}
+
+The model of Two-Line Element (TLE) data is computed by the Simplified General Perturbations-4 (SGP4) model as a baseline physics-based propagator to compute orbital positions. It offers an effective analytical representation of satellite motion by perturbative forces.
+
+The predicted state vector at time t is given as:
+\begin{equation}
+x_t^{SGP4} = f_{SGP4}(\text{TLE}, t)
+\end{equation}
+
+where $f_{SGP4}(\cdot)$ represents the orbital propagation function.
+
+Although computationally efficient, SGP4 suffers from accumulated prediction errors over time due to unmodeled perturbations.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=2.5in]{Fig3.png}
+\caption{SGP4 orbit propagation (48-hour horizon, ECI frame).}
+\label{fig:sgp4}
+\end{figure}
+
+\subsubsection{LSTM - Based Residual Learning Model}
+A Long Short-Term Memory (LSTM) network is used to address propagation drift by learning temporal patterns in the prediction error to find the compensation of propagation drift. The model does not make predictions of the absolute positions, but rather estimates the residual error between actual and predicted states.
+
+The residual is defined as:
+\begin{equation}
+\Delta x_t = x_t^{true} - x_t^{SGP4}
+\end{equation}
+
+The corrected hybrid position is:
+\begin{equation}
+x_t^{hybrid} = x_t^{SGP4} + \Delta x_t
+\end{equation}
+
+The model is trained using a Mean Squared Error (MSE) loss:
+\begin{equation}
+\mathcal{L} = \frac{1}{T} \sum_{t=1}^{T} \left\| x_t^{true} - x_t^{hybrid} \right\|^2
+\end{equation}
+
+This residual learning approach improves prediction accuracy while preserving physical consistency \cite{b1}.
+
+\subsubsection{KDTree - Based Spatial Indexing}
+To efficiently detect potential collision candidates, a KDTree-based spatial indexing structure is used. This enables fast nearest-neighbor search in high-dimensional space.
+
+The computational complexity is reduced from
+\begin{equation}
+O(n^2) \rightarrow O(n \log n)
+\end{equation}
+
+This significantly improves the scalability for large numbers of orbital objects.
+\begin{figure}[!t]
+\centering
+\includegraphics[width=2.2in]{Fig4.png}
+\caption{KD-tree spatial partitioning in the ECEF plane, illustrating efficient nearest-neighbor search within a local region for collision candidate detection.}
+\label{fig:kdtree}
+\end{figure}
+
+\subsubsection{XGBoost Based Risk Classification}
+A collision risk classification model is conducted using an Extreme Gradient Boosting (XGBoost) and a variety of kinematic and geometric characteristics are used as input data to the model \cite{b17}. XGBoost can use an ensemble of decision trees to predict nonlinear relationships among features to assess risk more accurately and robustly compared to traditional threshold-based methods, which only use distance criteria.
+
+The model prediction can be given as:
+\begin{equation}
+\hat{y} = \sum_{k=1}^{K} f_k(\mathbf{x})
+\end{equation}
+
+where $f_k$ represents the $k$-th decision tree in the ensemble and $\mathbf{x}$ denotes the input feature vector. Each tree contributes to the final prediction, and the model is trained using gradient boosting to minimize a differentiable loss function while incorporating regularization to prevent overfitting.
+
+The input feature set is structured to capture the dynamics of potential collision events and includes:
+
+\begin{table}[H]
+\caption{Feature Set for XGBoost Classification}
+\label{tab:xgboost_features}
+\centering
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|p{1.5cm}|p{2.5cm}|p{3.2cm}|}
+\hline
+\textbf{Feature} & \textbf{Description} & \textbf{Engineering Rationale} \\
+\hline
+Distance & Relative separation (km) & Primary indicator of conjunction severity \\
+\hline
+Velocity & Relative speed (km/s) & Determines available reaction time ($TCA$) \\
+\hline
+Angle & Collision geometry (deg) & Assesses impact energy vectors \\
+\hline
+Covariance & Uncertainty profile & Captures stochastic perturbations (e.g., drag) \\
+\hline
+\end{tabular}
+\end{table}
+
+Based on these features, the model classifies each conjunction event into discrete risk categories: \textit{SAFE}, \textit{MEDIUM}, and \textit{HIGH}. This multi-feature learning approach significantly reduces false positives and improves decision reliability compared to traditional rule-based methods.
+
+\subsubsection{PPO - Based Collision Avoidance Model}
+In the case of high risks, reinforcement learning-based control with Proximal Policy Optimization (PPO) can be added to produce the best collision avoidance maneuvers. This component contrasts with prediction models in that it concentrates on making decisions by training a policy to produce delta-velocity ($\Delta V$) changes to alter satellite trajectories.
+
+The PPO agent aims to maximize a reward function which trades collision avoidance and fuel efficiency:
+
+\begin{equation}
+J(\theta) = \mathbb{E} \left[ \sum_{t} r_t \right]
+\end{equation}
+
+where $r_t$ represents the reward at time step $t$, incorporating penalties for collision proximity and excessive fuel usage.
+
+
+\subsection{Algorithm: Hybrid Orbital Collision Prediction and Avoidance Pipeline}
+
+The overall workflow of the proposed system is summarized in Algorithm~1.
+
+\begin{algorithm}[!t]
+\caption{Hybrid Orbital Collision Prediction and Avoidance Pipeline}
+\label{alg:orbital}
+\scriptsize
+\setlength{\itemsep}{0pt}
+\begin{algorithmic}[1]
+
+\REQUIRE TLE data for $N$ objects
+\ENSURE Risk labels and avoidance maneuvers
+
+\STATE Propagate orbits via SGP4 $\rightarrow x_i^{SGP4}$
+\STATE Estimate residual $\Delta x_i$ using LSTM
+\STATE Compute $x_i^{hybrid} = x_i^{SGP4} + \Delta x_i$
+\STATE Build KDTree using $\{x_i^{hybrid}\}$
+
+\FOR{each object $i$}
+    \STATE Query neighbors within $d_{th}$; form $(i,j)$
+\ENDFOR
+
+\FOR{each pair $(i,j)$}
+    \STATE Extract features: dist, vel, angle, cov
+    \STATE Predict risk via XGBoost $\rightarrow$ \{SAFE, MEDIUM, HIGH\}
+\ENDFOR
+
+\FOR{each HIGH-risk $(i,j)$}
+    \STATE Compute maneuver $\Delta V$ using PPO
+\ENDFOR
+
+\STATE \textbf{return} labels and maneuvers
+
+\end{algorithmic}
+\end{algorithm}
+
+\section{Result and Analysis}
+\subsection{Experimental Setup}
+The specified framework was evaluated using publicly available Two-Line Element (TLE) data that was read in the common space tracking repositories. The data are modeled by some orbital bodies in Low Earth Orbit (LEO), including active satellites and fragments of debris. Baseline orbital trajectories were obtained with the SGP4 propagator, and then refined with the LSTM-based residual learning model.
+
+It was implemented using scientific computing packages in python, and trained machine learning models using typical deep learning packages. KDTree structure was utilized to do the spatial indexing efficiently and XGBoost classifier was utilized to do the collision risk assessment.
+
+Real-time requirements were tested on the system whereby a number of objects were run simultaneously to test with scalability and computational performance.
+
+\subsection{Evaluation Metrics}
+In order to check the effectiveness of the suggested framework, various quantitative indicators were applied.
+
+Root Mean Square Error (RMSE) was used to measure the accuracy of orbital prediction:
+
+\begin{equation}
+RMSE = \sqrt{\frac{1}{T} \sum_{t=1}^{T} \left\| x_t^{true} - x_t^{pred} \right\|^2}
+\end{equation}
+
+The measure compares orbital predictions with the actual positions.
+
+\begin{figure}[H]
+\centering
+
+\begin{subfigure}[t]{0.48\linewidth}
+\centering
+\includegraphics[width=\linewidth]{Fig6.png}
+\caption{RMSE over prediction horizon}
+\label{fig:rmse_curve}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.48\linewidth}
+\centering
+\includegraphics[width=\linewidth]{Fig7.png}
+\caption{Final RMSE comparison}
+\label{fig:rmse_bar}
+\end{subfigure}
+
+\caption{Performance comparison between SGP4 baseline and the proposed hybrid SGP4+LSTM model. The left plot shows RMSE trends over time, while the right plot summarizes the final RMSE improvement.}
+\label{fig:rmse_combined}
+
+\end{figure}
+
+This measure is used to measure the difference between the predicted and the true orbital positions at the prediction horizon. Fig. 5 illustrates the relative RMSE performance of the two SGP4 baseline and the hybrid model.
+
+Moreover, the accuracy and categorical prediction consistency were used as evaluation metrics of classification performance of the XGBoost model. The efficiency of the computation was measured both in terms of computational time and the ability to keep up with the growing number of tracked objects.
+
+\subsection{Results}
+The framework suggested has shown great improvements in terms of trajectory prediction, collision risk classification as well as computational efficiency.
+
+The hybrid model SGP4-LSTM proves useful in prediction of trajectories as it minimizes propagation error relative to the baseline SGP4 model. Fig. 6 illustrates that the Root Mean Square Error (RMSE) value declines with an increase in the prediction horizon to 48 hours, that is, it reduces to 11.2 km, which is about 25 percent lower than 14.8 km. The hybrid model also has constant error margins throughout the period, which implies better dynamics in unstable orbital conditions.
+
+With regard to collision risk assessment, the XGBoost classifier has excellent predictive efficiency through the use of a variety of kinematic and geometric characteristics. The model achieves a total precision of 96.7, and the F1-scores of 0.98, 0.89, and 0.91 in the SAFE, MEDIUM, and HIGH risk categories, respectively. As shown in the Fig.~\ref{fig:confusion}, this proves to be a good and balanced classification, which minimizes false positives a great deal in comparison to threshold-based methods.
+
+\begin{figure}[H]
+\centering
+
+\begin{subfigure}[t]{0.48\linewidth}
+\centering
+\includegraphics[width=\linewidth]{Fig_confu.png}
+\caption{Confusion matrix}
+\label{fig:confusion}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.48\linewidth}
+\centering
+\includegraphics[width=\linewidth]{Fig_feature_imp.png}
+\caption{Feature importance}
+\label{fig:feature_importance}
+\end{subfigure}
+
+\caption{Performance evaluation of the XGBoost-based collision risk classifier. The confusion matrix illustrates classification accuracy across risk levels, while the feature importance plot highlights the contribution of input features.}
+\label{fig:xgboost_analysis}
+
+\end{figure}
+
+The computational efficiency of the system is enhanced through KDTree-based spatial indexing, which reduces the complexity of conjunction analysis from $O(n^2)$ to $O(n \log n)$. As illustrated in Fig.~\ref{fig:complexity}, this enables efficient processing of large-scale datasets. The system achieves an end-to-end latency of under 100~ms while supporting over 1{,}500 objects at a 10~Hz update rate, confirming its real-time capability.
+
+Overall, the results validate the effectiveness of the proposed hybrid framework in improving prediction accuracy, classification reliability, and scalability for space debris monitoring applications.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=3.2in]{Fig8.png}
+\caption{Computational complexity comparison between naive pairwise search ($O(n^2)$) and KD-tree-based search ($O(n \log n)$). The KD-tree approach significantly reduces pairwise query time, enabling scalable collision detection for large numbers of space objects.}
+\label{fig:complexity}
+\end{figure}
+
+\subsection{Discussion}
+
+The findings demonstrate that the suggested hybrid SGP4-LSTM structure is effective in enhancing the accuracy of orbital prediction whilst ensuring computational efficiency. As seen in Fig.~\ref{fig:rmse combined}, the hybrid model will always minimize the prediction error than the standalone prediction using SGP4 baseline. The residual learning method effectively addresses the propagation drift which is one of the major drawbacks of conventional physics-based models.
+
+Scalability is greatly improved with the addition of KDTree as shown in Fig. \ref{fig:complexity} and the system can be adapted to large scale space situational awareness (SSA) applications. Also, XGBoost offers a more powerful decision-making mechanism than threshold-based methods in terms of risk classification. The performance of the classification, as shown in Fig. \ref{fig:xgboost_analysis} proves the suitability of the model to distinguish well between SAFE, MEDIUM and HIGH risk events.
+
+Nevertheless, there are shortcomings in the system. Predictions rely on the quality and frequency of updates of TLE data. Moreover, the collision avoidance module based on reinforcement learning is yet to be regarded as an extension and has to be confirmed in real-life operational conditions.
+
+
+\section{Conclusion}
+The current paper revealed an exemplar of a hybrid SGP4LSTM model of real-time space debris collision prediction and risk assessment. The proposed method combines physics-based orbital propagation and the data-driven residual learning and is effective in reducing propagation drift and enhancing the accuracy of long-term predictions. With improved performance in dynamic orbital environments, the hybrid model records about a 25\% decrease in RMSE relative to the SGP4 standalone model. Moreover, the combination of the KD-tree based spatial indexing allows finding conjunctions efficiently and at scale, and the XGBoost-based classifier is capable of reliable risk detection with an accuracy of 96.7\% only.
+
+Overall system performance is real-time with a latency of less than 100 ms when using large-scale sets of objects, showing its applicability to realistic space situational awareness (SSA) uses. Future efforts will involve incorporating real-time sensor data, better uncertainty modeling, and reinforcement learning-based autonomous collision avoidance extension of the framework. In general, the suggested framework will provide a powerful, scalable, and smart solution to space debris tracking and will help to make space operations safer and more sustainable.
+
+
+\begin{thebibliography}{00}
+
+\bibitem{b1} J. F. San-Juan, I. Pérez, M. San-Martín, and E. P. Vergara, “Hybrid SGP4 Orbit Propagator,” \emph{Aerospace Science and Technology}, vol. 47, pp. 1--9, 2017.
+
+\bibitem{b2} T. Flohrer et al., “Space Debris Environment Modeling and Detection Challenges,” in \emph{Proc. IEEE Aerospace Conf.}, pp. 1--10.
+
+\bibitem{b3} D. J. Kessler and B. G. Cour-Palais, “Collision Frequency of Artificial Satellites,” \emph{Journal of Geophysical Research}, vol. 83, no. A6, pp. 2637--2646, 1978.
+
+\bibitem{b4} D. A. Vallado et al., “Revisiting Spacetrack Report \#3,” \emph{AIAA}, 2006.
+
+\bibitem{b5} T. S. Kelso, “Validation of SGP4 and IS-GPS-200 Models,” \emph{AIAA}, 2007.
+
+\bibitem{b6} F. R. Hoots and R. L. Roehrich, “Models for Propagation of NORAD Element Sets,” \emph{Spacetrack Report No. 3}, 1980.
+
+\bibitem{b7} J. Chen et al., “LSTM-Based Satellite Orbit Prediction Using TLE Data,” \emph{IEEE Trans. Aerospace Electron. Syst.}, 2025.
+
+\bibitem{b8} F. Caldas and C. Soares, “Machine Learning-Based Orbit Prediction in LEO,” \emph{arXiv preprint}, 2024.
+
+\bibitem{b9} R. Cipollone et al., “LSTM-Based Maneuver Detection for Space Objects,” \emph{Neural Computing and Applications}, 2025.
+
+\bibitem{b10} Y. Zhang et al., “CNN-Based Radar Space Object Detection,” in \emph{Proc. IEEE Int. Conf. Signal Processing}, pp. 120--125.
+
+\bibitem{b11} H. Liu et al., “Deep Learning for Space Object Detection,” \emph{IEEE Trans. Geosci. Remote Sens.}, vol. 58, no. 4, pp. 2500--2512.
+
+\bibitem{b12} D. Brown et al., “Deep Learning for Faint Space Object Detection,” \emph{IEEE Trans. Neural Networks Learn. Syst.}, vol. 32, no. 5, pp. 2101--2113.
+
+\bibitem{b13} I. Priyadarshini, “Hybrid Bi-LSTM-CNN for Space Debris Detection,” \emph{Artificial Intelligence Advances}, 2025.
+
+\bibitem{b14} R. Kumar et al., “Machine Learning in Space Situational Awareness: A Survey,” \emph{IEEE Access}, vol. 8, pp. 185761--185776.
+
+\bibitem{b15} S. Ahmed et al., “Space Debris Tracking Using Machine Learning,” in \emph{Proc. IEEE Big Data}, pp. 567--573.
+
+\bibitem{b16} A. Garcia et al., “Autonomous Space Situational Awareness Systems,” in \emph{Proc. IEEE Aerospace Conf.}, pp. 1--9.
+
+\bibitem{b17} K. Thompson et al., “AI-Driven Collision Risk Assessment,” \emph{IEEE Intelligent Systems}, vol. 36, no. 3, pp. 45--54.
+
+\bibitem{b18} X. Chen et al., “Physics-Informed Neural Networks for Orbit Prediction,” \emph{IEEE Trans. Aerospace Electron. Syst.}, vol. 57, no. 6, pp. 3456--3465.
+
+\bibitem{b19} Z. Li et al., “Transformer Models for Orbit Prediction,” \emph{IEEE Access}, vol. 9, pp. 112345--112356.
+
+\bibitem{b20} L. Wang et al., “Optical Detection of Small Space Debris,” \emph{Optics Express}, vol. 27, no. 15, pp. 21045--21060.
+
+\bibitem{b21} P. Patel et al., “Radar-Based SSA Techniques,” \emph{IEEE Aerospace and Electronic Systems Magazine}, vol. 35, no. 7, pp. 30--42.
+
+\bibitem{b22} M. Hernandez et al., “Multi-Sensor Fusion for Space Situational Awareness,” \emph{IEEE Sensors Journal}, vol. 20, no. 12, pp. 6789--6798.
+
+\bibitem{b23} N. Roy et al., “Multi-Sensor Fusion for SSA,” \emph{IEEE Trans. Aerospace Electron. Syst.}, vol. 56, no. 2, pp. 1456--1468.
+
+\bibitem{b24} J. Smith et al., “Artificial Intelligence for Space Debris Detection,” in \emph{Proc. IEEE Int. Conf. Artificial Intelligence}, pp. 98--104.
+
+\bibitem{b25} ESA, “Space Debris by the Numbers,” European Space Agency, 2023.
+
+\bibitem{b26} ISRO, “Project NETRA: Space Situational Awareness Initiative,” 2021.
+
+\bibitem{b27} A. Parallel GPU-Based Collision Prediction Algorithm Using SGP4/SDP4 Models, \emph{IEEE Aerospace Conf.}, 2017.
+
+\bibitem{b28} K. Kazemi et al., “Orbit Determination for SSA: A Survey,” \emph{Acta Astronautica}, Elsevier, 2024.
+
+\bibitem{b29} M. Navya et al., “Deep Learning-Based Space Debris Tracking,” \emph{Journal of Electrical Systems}, 2024.
+
+\bibitem{b30} S. Khedekar et al., “Space Debris Tracking Models: A Comparative Study,” \emph{International Journal of Scientific Research}, 2024.
+
+\end{thebibliography}
+
+\EOD
+
+\end{document}

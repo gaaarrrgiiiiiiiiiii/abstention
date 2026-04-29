@@ -3,13 +3,16 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 
+def resolve_path(rel_path):
+    # Standalone path resolver to avoid importing torch from dataset.py
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), rel_path)
 
 def plot_training_curves():
     """Plot training and validation loss for all 4 experiments."""
     plt.figure(figsize=(12, 6))
     
     for exp_id in range(1, 5):
-        csv_path = f"results/experiment_{exp_id}_metrics.csv"
+        csv_path = resolve_path(f"results/experiment_{exp_id}_metrics.csv")
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
             plt.plot(df['epoch'], df['val_loss'], label=f'Exp {exp_id} Val Loss', marker='o', markersize=4)
@@ -20,12 +23,14 @@ def plot_training_curves():
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.tight_layout()
-    plt.savefig('results/plot_training_curves.png')
+    plt.savefig(resolve_path('results/plot_training_curves.png'))
     print("Saved results/plot_training_curves.png")
 
 
-def plot_risk_coverage(final_results_path="results/final_results.csv"):
+def plot_risk_coverage(final_results_path=None):
     """Plot Risk-Coverage comparison across the evaluated models."""
+    if final_results_path is None:
+        final_results_path = resolve_path("results/final_results.csv")
     if not os.path.exists(final_results_path):
         print(f"Cannot plot Risk-Coverage: {final_results_path} not found.")
         return
@@ -47,13 +52,17 @@ def plot_risk_coverage(final_results_path="results/final_results.csv"):
             color=colors[i % len(colors)],
             marker=markers[i % len(markers)]
         )
-        # Add labels next to points
+        # Add labels next to points with staggered offsets to prevent overlap
+        y_offset = 8 if i % 2 == 0 else -15
+        x_offset = 12 if i % 2 == 0 else -12
+        
         plt.annotate(
             row['Model Name'],
             (row['Coverage'] * 100, row['Selective Risk'] * 100),
-            xytext=(10, 5), 
+            xytext=(x_offset, y_offset), 
             textcoords='offset points',
-            fontsize=9
+            fontsize=9,
+            bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.8)
         )
         
     plt.title('Risk-Coverage Tradeoff')
@@ -62,7 +71,7 @@ def plot_risk_coverage(final_results_path="results/final_results.csv"):
     plt.grid(True, linestyle='--', alpha=0.7)
     # plt.legend()
     plt.tight_layout()
-    plt.savefig('results/plot_risk_coverage.png')
+    plt.savefig(resolve_path('results/plot_risk_coverage.png'))
     print("Saved results/plot_risk_coverage.png")
 
 
@@ -74,7 +83,7 @@ def plot_hardware_metrics():
     memories = []
     
     for exp_id in range(1, 5):
-        csv_path = f"results/experiment_{exp_id}_metrics.csv"
+        csv_path = resolve_path(f"results/experiment_{exp_id}_metrics.csv")
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
             if 'throughput_samples_per_sec' in df.columns and ('process_memory_mb' in df.columns or 'gpu_memory_mb' in df.columns):
@@ -95,7 +104,7 @@ def plot_hardware_metrics():
     for i, v in enumerate(throughputs):
         plt.text(i, v + (max(throughputs)*0.02), f"{v:.0f}", ha='center')
     plt.tight_layout()
-    plt.savefig('results/plot_hardware_throughput.png')
+    plt.savefig(resolve_path('results/plot_hardware_throughput.png'))
     print("Saved results/plot_hardware_throughput.png")
     
     # Plot Memory
@@ -106,12 +115,12 @@ def plot_hardware_metrics():
     for i, v in enumerate(memories):
         plt.text(i, v + (max(max(memories), 1)*0.02), f"{v:.1f}", ha='center')
     plt.tight_layout()
-    plt.savefig('results/plot_hardware_memory.png')
+    plt.savefig(resolve_path('results/plot_hardware_memory.png'))
     print("Saved results/plot_hardware_memory.png")
 
     
 if __name__ == "__main__":
-    os.makedirs("results", exist_ok=True)
+    os.makedirs(resolve_path("results"), exist_ok=True)
     plot_training_curves()
     plot_risk_coverage()
     plot_hardware_metrics()

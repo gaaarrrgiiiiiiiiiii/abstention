@@ -8,9 +8,10 @@ import copy
 import time
 import psutil
 
-from dataset import load_data, FraudDataset
+from dataset import load_data, FraudDataset, resolve_path
 from abstention_model import AbstentionModel
 from train_abstention import dac_loss, evaluate_abstention
+from seed import set_seed
 
 
 # ============================================================
@@ -37,13 +38,17 @@ def run_experiment(
     patience=10,
     accum_steps=4,
     class_weights=None,
+    seed=42,
 ):
 
     config = EXPERIMENTS[exp_id]
 
+    # Set seed for each experiment for reproducibility
+    set_seed(seed)
+
     print(f"\n{'='*90}")
     print(f"  EXPERIMENT {exp_id}: {config['name']}")
-    print(f"  Gradient Accumulation: {use_grad_accum} | Mixed Precision: {use_mixed_precision}")
+    print(f"  Gradient Accumulation: {use_grad_accum} | Mixed Precision: {use_mixed_precision} | Seed: {seed}")
     print(f"{'='*90}")
 
     # ----------------------------
@@ -52,9 +57,9 @@ def run_experiment(
     model = AbstentionModel(input_dim=30, dropout=0.3).to(device)
 
     # Transfer baseline weights if available
-    if os.path.exists("baseline_model.pth"):
+    if os.path.exists(resolve_path("baseline_model.pth")):
         from baseline_model import BaselineModel
-        baseline_state = torch.load("baseline_model.pth", map_location=device, weights_only=True)
+        baseline_state = torch.load(resolve_path("baseline_model.pth"), map_location=device, weights_only=True)
         model_state = model.state_dict()
 
         for key in baseline_state:
@@ -80,9 +85,9 @@ def run_experiment(
     # ----------------------------
     # CSV logging
     # ----------------------------
-    os.makedirs("results", exist_ok=True)
+    os.makedirs(resolve_path("results"), exist_ok=True)
 
-    csv_path = f"results/experiment_{exp_id}_metrics.csv"
+    csv_path = resolve_path(f"results/experiment_{exp_id}_metrics.csv")
 
     csv_file = open(csv_path, "w", newline="")
 
@@ -211,7 +216,8 @@ def run_experiment(
             model,
             val_loader,
             device,
-            alpha
+            alpha,
+            class_weights
         )
 
         # ----------------------------
@@ -279,7 +285,7 @@ def run_experiment(
 
     csv_file.close()
 
-    model_path = f"results/experiment_{exp_id}_model.pth"
+    model_path = resolve_path(f"results/experiment_{exp_id}_model.pth")
 
     torch.save(best_state, model_path)
 
@@ -298,7 +304,7 @@ def run_all_experiments():
 
     print(f"Device: {DEVICE}")
 
-    X_train, X_val, X_test, y_train, y_val, y_test = load_data("data/creditcard.csv")
+    X_train, X_val, X_test, y_train, y_val, y_test, _ = load_data("data/creditcard.csv")
 
     train_dataset = FraudDataset(X_train, y_train)
     val_dataset = FraudDataset(X_val, y_val)

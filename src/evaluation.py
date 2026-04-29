@@ -2,9 +2,9 @@ import torch
 import numpy as np
 import pandas as pd
 import os
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix
 
-from dataset import load_data
+from dataset import load_data, resolve_path
 from baseline_model import BaselineModel
 from abstention_model import AbstentionModel
 from metrics import classification_metrics, coverage, selective_risk, expected_calibration_error
@@ -47,7 +47,7 @@ EVAL_MODELS = {
 
 
 def evaluate_model(model, X_test, y_test, device, has_abstain):
-    """Run evaluation for a single model and compute all metrics."""
+    """Run evaluation for a single model and compute all metrics including confusion matrix."""
     model.eval()
     
     with torch.no_grad():
@@ -93,16 +93,43 @@ def evaluate_model(model, X_test, y_test, device, has_abstain):
         filtered_true = y_test[non_abstain_mask]
         acc = accuracy_score(filtered_true, filtered_preds)
         f1 = f1_score(filtered_true, filtered_preds, labels=[0, 1], pos_label=1, average='binary', zero_division=0.0)
+        prec = precision_score(filtered_true, filtered_preds, labels=[0, 1], pos_label=1, average='binary', zero_division=0.0)
+        rec = recall_score(filtered_true, filtered_preds, labels=[0, 1], pos_label=1, average='binary', zero_division=0.0)
+
+        # Confusion matrix on non-abstained predictions (2x2: legit vs fraud)
+        cm = confusion_matrix(filtered_true, filtered_preds, labels=[0, 1])
     else:
         acc = 0.0
         f1 = 0.0
+        prec = 0.0
+        rec = 0.0
+        cm = np.zeros((2, 2), dtype=int)
+
+    # Abstention breakdown: how many of each true class were abstained on
+    n_abstained_total = sum(preds_np == 2)
+    if has_abstain and n_abstained_total > 0:
+        abstained_mask = (preds_np == 2)
+        n_abstained_legit = sum(y_test[abstained_mask] == 0)
+        n_abstained_fraud = sum(y_test[abstained_mask] == 1)
+    else:
+        n_abstained_legit = 0
+        n_abstained_fraud = 0
         
     return {
         "Accuracy": acc,
         "Coverage": cov,
         "Selective Risk": sel_risk,
         "ECE": ece,
-        "F1 Score": f1
+        "F1 Score": f1,
+        "Precision (Fraud)": prec,
+        "Recall (Fraud)": rec,
+        "Abstained Total": int(n_abstained_total),
+        "Abstained Legit": int(n_abstained_legit),
+        "Abstained Fraud": int(n_abstained_fraud),
+        "CM_TN": int(cm[0, 0]),
+        "CM_FP": int(cm[0, 1]),
+        "CM_FN": int(cm[1, 0]),
+        "CM_TP": int(cm[1, 1]),
     }
 
 
@@ -116,7 +143,7 @@ def run_comprehensive_evaluation():
     # ----------------------------
     # Load Test Data
     # ----------------------------
-    _, _, X_test_np, _, _, y_test_np = load_data("data/creditcard.csv")
+    _, _, X_test_np, _, _, y_test_np, _ = load_data("data/creditcard.csv")
     
     # Convert to pure tensors (fixes the `.values` bug from old code)
     X_test = torch.tensor(X_test_np, dtype=torch.float32).to(DEVICE)
@@ -131,8 +158,9 @@ def run_comprehensive_evaluation():
     results = []
     
     for name, config in EVAL_MODELS.items():
-        if not os.path.exists(config["file"]):
-            print(f"Skipping {name} (File not found: {config['file']})")
+        resolved_path = resolve_path(config["file"])
+        if not os.path.exists(resolved_path):
+            print(f"Skipping {name} (File not found: {resolved_path})")
             continue
             
         print(f"Evaluating: {name}...")
@@ -144,7 +172,7 @@ def run_comprehensive_evaluation():
             model = AbstentionModel(input_dim=30, dropout=0.0).to(DEVICE)
             
         # Load weights
-        model.load_state_dict(torch.load(config["file"], map_location=DEVICE, weights_only=True))
+        model.load_state_dict(torch.load(resolve_path(config["file"]), map_location=DEVICE, weights_only=True))
         
         # Get metrics
         metrics = evaluate_model(model, X_test, y_test, DEVICE, config["has_abstain"])
@@ -160,26 +188,29 @@ def run_comprehensive_evaluation():
         
     df_results = pd.DataFrame(results)
     
-    # Reorder columns
-    df_results = df_results[["Model Name", "Accuracy", "Coverage", "Selective Risk", "ECE", "F1 Score"]]
+    # Save main results (backward compatible)
+    main_cols = ["Model Name", "Accuracy", "Coverage", "Selective Risk", "ECE", "F1 Score"]
+    df_main = df_results[main_cols]
     
-    # Save to CSV
-    os.makedirs("results", exist_ok=True)
-    df_results.to_csv("results/final_results.csv", index=False)
+    os.makedirs(resolve_path("results"), exist_ok=True)
+    df_main.to_csv(resolve_path("results/final_results.csv"), index=False)
     
-    # Display nicely formatting
+    # Save extended results with confusion matrices and per-class metrics
+    df_results.to_csv(resolve_path("results/final_results_extended.csv"), index=False)
+    
+    # Display nicely formatted output
     print("\n" + "=" * 80)
     print("FINAL EVALUATION RESULTS")
     print("=" * 80)
     
-    # Print formatted table
+    # Print main metrics table
     format_str = "{:<22} | {:>8.4f} | {:>8.4f} | {:>14.4f} | {:>6.4f} | {:>8.4f}"
     print("{:<22} | {:>8} | {:>8} | {:>14} | {:>6} | {:>8}".format(
         "Model Name", "Accuracy", "Coverage", "Selective Risk", "ECE", "F1 Score"
     ))
     print("-" * 80)
     
-    for _, row in df_results.iterrows():
+    for _, row in df_main.iterrows():
         print(format_str.format(
             row["Model Name"],
             row["Accuracy"],
@@ -189,8 +220,25 @@ def run_comprehensive_evaluation():
             row["F1 Score"]
         ))
         
+    # Print confusion matrices
+    print("\n" + "=" * 80)
+    print("CONFUSION MATRICES (on non-abstained predictions)")
     print("=" * 80)
+    
+    for _, row in df_results.iterrows():
+        name = row["Model Name"]
+        print(f"\n  {name}:")
+        print(f"    Predicted ->   Legit    Fraud")
+        print(f"    True Legit:  {int(row['CM_TN']):>8}  {int(row['CM_FP']):>8}")
+        print(f"    True Fraud:  {int(row['CM_FN']):>8}  {int(row['CM_TP']):>8}")
+        print(f"    Precision(Fraud): {row['Precision (Fraud)']:.4f} | Recall(Fraud): {row['Recall (Fraud)']:.4f}")
+        if row["Abstained Total"] > 0:
+            print(f"    Abstained: {int(row['Abstained Total'])} total "
+                  f"({int(row['Abstained Legit'])} legit, {int(row['Abstained Fraud'])} fraud)")
+
+    print("\n" + "=" * 80)
     print("Results saved to results/final_results.csv")
+    print("Extended results saved to results/final_results_extended.csv")
 
 if __name__ == "__main__":
     run_comprehensive_evaluation()

@@ -6,15 +6,16 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import csv
 import os
 
-from dataset import load_data, FraudDataset
+from dataset import load_data, FraudDataset, resolve_path
 from abstention_model import AbstentionModel
 from baseline_model import BaselineModel
+from seed import set_seed
 
 
 # ============================================================
 # DAC Loss (Deep Abstaining Classifier)
 # ============================================================
-def dac_loss(outputs, targets, alpha=0.5, class_weights=None):
+def dac_loss(outputs, targets, alpha=0.3, class_weights=None):
     """
     Deep Abstaining Classifier loss with class weighting.
 
@@ -52,7 +53,7 @@ def dac_loss(outputs, targets, alpha=0.5, class_weights=None):
 # ============================================================
 # Evaluation with Abstention Metrics
 # ============================================================
-def evaluate_abstention(model, loader, device, alpha=0.5):
+def evaluate_abstention(model, loader, device, alpha=0.3, class_weights=None):
     """Evaluate abstention model: returns loss, accuracy, coverage, selective_risk, F1."""
     model.eval()
     total_loss = 0
@@ -65,7 +66,7 @@ def evaluate_abstention(model, loader, device, alpha=0.5):
             x, y = x.to(device), y.to(device)
             outputs = model(x)
 
-            loss = dac_loss(outputs, y, alpha, class_weights=None)
+            loss = dac_loss(outputs, y, alpha, class_weights=class_weights)
             total_loss += loss.item()
 
             preds = torch.argmax(outputs, dim=1)
@@ -99,8 +100,13 @@ def evaluate_abstention(model, loader, device, alpha=0.5):
 # ============================================================
 # Main Training Function
 # ============================================================
-def train_abstention():
+def train_abstention(seed=42):
     """Train abstention model with DAC loss, initialized from baseline weights."""
+
+    # ----------------------------
+    # Reproducibility
+    # ----------------------------
+    set_seed(seed)
 
     # ----------------------------
     # Configuration
@@ -120,7 +126,7 @@ def train_abstention():
     # ----------------------------
     # Load Data
     # ----------------------------
-    X_train, X_val, X_test, y_train, y_val, y_test = load_data("data/creditcard.csv")
+    X_train, X_val, X_test, y_train, y_val, y_test, _ = load_data("data/creditcard.csv")
 
     train_dataset = FraudDataset(X_train, y_train)
     val_dataset = FraudDataset(X_val, y_val)
@@ -134,7 +140,7 @@ def train_abstention():
     # Compute class weights to handle imbalance (boost fraud class)
     n_legit = sum(y_train == 0)
     n_fraud = sum(y_train == 1)
-    fraud_weight = min(n_legit / n_fraud, 600.0)  # full weight
+    fraud_weight = min(n_legit / n_fraud, 50.0)  # capped at 50 for DAC loss stability
     class_weights = torch.tensor([1.0, fraud_weight], dtype=torch.float32).to(DEVICE)
     print(f"Class weights for DAC loss: [1.0, {fraud_weight:.1f}]")
 
@@ -144,8 +150,8 @@ def train_abstention():
     model = AbstentionModel(input_dim=30, dropout=DROPOUT).to(DEVICE)
 
     # Load pretrained baseline weights for shared layers
-    if os.path.exists("baseline_model.pth"):
-        baseline_state = torch.load("baseline_model.pth", map_location=DEVICE, weights_only=True)
+    if os.path.exists(resolve_path("baseline_model.pth")):
+        baseline_state = torch.load(resolve_path("baseline_model.pth"), map_location=DEVICE, weights_only=True)
         # Transfer weights from baseline layers (skip the final output layer)
         model_state = model.state_dict()
         transferred = 0
@@ -170,8 +176,8 @@ def train_abstention():
     # ----------------------------
     # Metrics CSV
     # ----------------------------
-    os.makedirs("results", exist_ok=True)
-    csv_path = "results/abstention_training_metrics.csv"
+    os.makedirs(resolve_path("results"), exist_ok=True)
+    csv_path = resolve_path("results/abstention_training_metrics.csv")
     csv_file = open(csv_path, "w", newline="")
     writer = csv.writer(csv_file)
     writer.writerow([
@@ -212,7 +218,7 @@ def train_abstention():
 
         # ---- Validation ----
         val_loss, sel_acc, coverage, sel_risk, sel_f1 = evaluate_abstention(
-            model, val_loader, DEVICE, ALPHA
+            model, val_loader, DEVICE, ALPHA, class_weights
         )
 
         # ---- LR Scheduling ----
@@ -233,7 +239,7 @@ def train_abstention():
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0
-            torch.save(model.state_dict(), "abstention_model.pth")
+            torch.save(model.state_dict(), resolve_path("abstention_model.pth"))
         else:
             patience_counter += 1
             if patience_counter >= PATIENCE:
@@ -245,7 +251,7 @@ def train_abstention():
     print("=" * 90)
     print(f"Best validation loss: {best_val_loss:.6f}")
     print(f"Metrics saved to: {csv_path}")
-    print(f"Best model saved to: abstention_model.pth")
+    print(f"Best model saved to: {resolve_path('abstention_model.pth')}")
     print("=" * 90)
 
     return best_val_loss

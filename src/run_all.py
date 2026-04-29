@@ -2,6 +2,8 @@ import sys
 import os
 import time
 
+from dataset import resolve_path
+
 # Import main functions from our scripts
 from train_baseline import train_baseline
 from train_abstention import train_abstention
@@ -27,7 +29,7 @@ def main():
     5. Generate Plots
     """
     
-    os.makedirs("results", exist_ok=True)
+    os.makedirs(resolve_path("results"), exist_ok=True)
     
     total_start = time.time()
     
@@ -58,7 +60,7 @@ def main():
         # PHASE 4: Comprehensive Evaluation
         # ---------------------------------------------------------
         print_header(4, "Comprehensive Evaluation on Test Set")
-        if not os.path.exists("baseline_model.pth") or not os.path.exists("abstention_model.pth"):
+        if not os.path.exists(resolve_path("baseline_model.pth")) or not os.path.exists(resolve_path("abstention_model.pth")):
             print("ERROR: Models missing. Evaluating what is available.")
         run_comprehensive_evaluation()
         

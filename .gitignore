@@ -25,9 +25,10 @@ data/creditcard.csv
 data/*.csv
 
 # =========================
-# Trained Model Weights
+# Trained Model Weights & Scaler
 # =========================
 *.pth
+scaler.joblib
 
 # =========================
 # IDE / Editor

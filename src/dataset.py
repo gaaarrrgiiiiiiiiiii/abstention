@@ -1,8 +1,19 @@
 import pandas as pd
+import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import torch
 from torch.utils.data import Dataset
+
+# Resolve project root (parent of src/) regardless of CWD
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def resolve_path(relative_path):
+    """Resolve a project-relative path to an absolute path."""
+    if os.path.isabs(relative_path):
+        return relative_path
+    return os.path.join(PROJECT_ROOT, relative_path)
 
 
 class FraudDataset(Dataset):
@@ -21,6 +32,10 @@ class FraudDataset(Dataset):
 
 
 def load_data(path):
+
+    # Resolve path relative to project root if not absolute
+    if not os.path.isabs(path):
+        path = os.path.join(PROJECT_ROOT, path)
 
     data = pd.read_csv(path)
 
@@ -54,12 +69,12 @@ def load_data(path):
     X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
-    return X_train, X_val, X_test, y_train, y_val, y_test
+    return X_train, X_val, X_test, y_train, y_val, y_test, scaler
 
 
 if __name__ == "__main__":
 
-    X_train, X_val, X_test, y_train, y_val, y_test = load_data("data/creditcard.csv")
+    X_train, X_val, X_test, y_train, y_val, y_test, scaler = load_data("data/creditcard.csv")
 
     print("Train size:", len(X_train))
     print("Validation size:", len(X_val))

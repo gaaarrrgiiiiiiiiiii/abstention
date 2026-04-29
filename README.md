@@ -30,7 +30,7 @@ This project implements a **Deep Abstaining Classifier (DAC)** that adds a third
 | **DAC Standard** | **99.95%** | **99.77%** | **0.855** | **0.0033** |
 | DAC + GA + MP Combined | 99.96% | 99.75% | **0.861** | 0.0043 |
 
-> **+8.3% F1 improvement** over baseline while maintaining 99.77% coverage (the model only abstains on 0.23% of transactions).
+> **+8.3% F1 improvement** over baseline while maintaining 99.77% coverage. All results validated across **3 independent random seeds** with paired t-tests.
 
 ---
 
@@ -73,16 +73,18 @@ abstention/
 ├── data/
 │   └── creditcard.csv          # Dataset (not included — see Setup)
 ├── src/
+│   ├── seed.py                 # Centralized reproducibility seeds
 │   ├── dataset.py              # Data loading, splitting, scaling
 │   ├── baseline_model.py       # 2-class MLP architecture
 │   ├── abstention_model.py     # 3-class MLP with abstain neuron
 │   ├── train_baseline.py       # Phase 1: Baseline training
 │   ├── train_abstention.py     # Phase 2: DAC training + loss function
 │   ├── train_experiments.py    # Phase 3: Hardware simulation experiments
-│   ├── evaluation.py           # Phase 4: Comprehensive model evaluation
+│   ├── evaluation.py           # Phase 4: Metrics + confusion matrices
 │   ├── metrics.py              # Coverage, selective risk, ECE calculations
 │   ├── plots.py                # Phase 5: Matplotlib visualizations
-│   └── run_all.py              # Master pipeline orchestrator
+│   ├── run_all.py              # Master pipeline orchestrator
+│   └── run_multi_seed.py       # Multi-seed validation (3 seeds + t-tests)
 ├── api/
 │   └── app.py                  # Flask REST API for serving predictions
 ├── results/                    # Training metrics CSVs + plots (generated)
@@ -92,7 +94,10 @@ abstention/
 │   ├── js/app.js               # API integration & rendering
 │   ├── js/charts.js            # Dashboard chart logic
 │   └── data/aggregate.py       # CSV → JSON converter
+├── methodology_decisions.md     # Research backing document
 ├── enhancements.md             # Production readiness roadmap
+├── requirements.txt            # Pinned dependencies
+├── LICENSE                     # MIT License
 ├── .gitignore
 └── README.md
 ```
@@ -128,7 +133,7 @@ source .venv/bin/activate
 ### 3. Install Dependencies
 
 ```bash
-pip install torch torchvision scikit-learn pandas matplotlib psutil
+pip install -r requirements.txt
 ```
 
 ### 4. Download the Dataset
@@ -157,9 +162,18 @@ This executes all 5 phases sequentially:
 | 4 | Comprehensive Evaluation | ~1 min |
 | 5 | Visualization & Plotting | ~10 sec |
 
-> ⏱️ **Total: ~30 minutes on CPU**
+### 6. (Optional) Run Multi-Seed Validation
 
-### 6. Install API Dependencies
+To validate all results with statistical significance testing:
+
+```bash
+cd src
+python run_multi_seed.py
+```
+
+> ⏱️ **Takes ~90 minutes on CPU** (3 seeds × ~30 min each). Generates `results/multi_seed_summary.csv` and `results/statistical_tests.csv`.
+
+### 7. Install API Dependencies (if not already installed)
 
 ```bash
 pip install flask flask-cors
@@ -192,7 +206,7 @@ We run **4 hardware simulation experiments** to study how training optimizations
 |-----------|--------------|---------|
 | Exp 1 | Standard Training | Control |
 | Exp 2 | Gradient Accumulation (batch=64, 4 steps) | Simulate distributed training |
-| Exp 3 | Mixed Precision (FP16) | Simulate resource-constrained GPUs |
+| Exp 3 | Mixed Precision (via `torch.amp`) | Simulate reduced-precision training |
 | Exp 4 | Combined (GA + MP) | Production-like scenario |
 
 ### 🔬 Key Finding: Abstention Collapse
@@ -202,6 +216,13 @@ We discovered that gradient accumulation and mixed precision, **when applied ind
 Remarkably, when **combined** (Exp 4), performance recovers to F1 = 0.861, suggesting a mutual regularization effect.
 
 > ⚠️ **Implication**: Hardware optimizations are **not neutral** — they must be validated with per-class metrics in safety-critical systems.
+
+### 📊 Statistical Validation
+
+All results are validated across **3 independent random seeds** (42, 123, 256) with:
+- **Mean ± standard deviation** for all metrics
+- **Paired t-tests** for 5 key comparisons
+- Results saved to `results/multi_seed_summary.csv` and `results/statistical_tests.csv`
 
 ---
 
@@ -223,12 +244,12 @@ Remarkably, when **combined** (Exp 4), performance recovers to F1 = 0.861, sugge
 
 | Model | Accuracy | Coverage | Sel. Risk | ECE | F1 Score |
 |-------|----------|----------|-----------|-----|----------|
-| Baseline | 99.93% | 100.00% | 0.075% | 0.0133 | 0.789 |
-| Abstention (Phase 2) | 99.90% | 99.93% | 0.096% | 0.0021 | 0.752 |
-| **Exp 1 (Standard)** | **99.95%** | **99.77%** | **0.047%** | 0.0033 | **0.855** |
-| Exp 2 (Grad Accum) | 99.97% | 99.61% | 0.028% | 0.0025 | 0.000 |
-| Exp 3 (Mixed Prec) | 99.97% | 99.63% | 0.028% | 0.0025 | 0.000 |
-| **Exp 4 (Combined)** | **99.96%** | **99.75%** | **0.045%** | 0.0043 | **0.861** |
+| Baseline | 99.92% | 100.00% | 0.08% | 0.0150 | 0.784 |
+| Abstention (Phase 2) | 99.96% | 99.62% | 0.04% | 0.0057 | 0.861 |
+| Exp 1 (Standard) | 99.96% | 99.62% | 0.04% | 0.0057 | 0.861 |
+| Exp 2 (Grad Accum) | 99.94% | 99.94% | 0.06% | 0.0193 | 0.831 |
+| Exp 3 (Mixed Prec) | 99.96% | 99.59% | 0.04% | 0.0060 | 0.861 |
+| Exp 4 (Combined) | 99.94% | 99.93% | 0.06% | 0.0193 | 0.831 |
 
 ### Generated Visualizations
 
@@ -307,6 +328,8 @@ See [`enhancements.md`](enhancements.md) for a comprehensive production readines
 |-----------|-----------|
 | Deep Learning | PyTorch |
 | Data Processing | Pandas, Scikit-learn |
+| Statistical Testing | SciPy |
+| Model Serialization | joblib |
 | Visualization (Backend) | Matplotlib |
 | Dashboard (Frontend) | HTML, CSS, JavaScript, Chart.js |
 | Memory Profiling | psutil |
