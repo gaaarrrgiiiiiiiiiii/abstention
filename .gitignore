@@ -23,12 +23,14 @@ ENV/
 # =========================
 data/creditcard.csv
 data/*.csv
+data/*.npz
 
 # =========================
 # Trained Model Weights & Scaler
 # =========================
 *.pth
 scaler.joblib
+data/*.pkl
 
 # =========================
 # IDE / Editor

@@ -1,3 +1,4 @@
+import torch
 import sys
 import os
 import time
@@ -9,7 +10,8 @@ from train_baseline import train_baseline
 from train_abstention import train_abstention
 from train_experiments import run_all_experiments
 from evaluation import run_comprehensive_evaluation
-from plots import plot_training_curves, plot_risk_coverage, plot_hardware_metrics
+from run_ood_simulation import run_ood_simulation
+from run_agent_pipeline import run_agent_pipeline
 
 
 def print_header(phase_num, title):
@@ -65,12 +67,25 @@ def main():
         run_comprehensive_evaluation()
         
         # ---------------------------------------------------------
+        # PHASE 4.5: OOD Robustness Simulation
+        # ---------------------------------------------------------
+        print_header(4.5, "Out-Of-Distribution Robustness Simulation")
+        run_ood_simulation()
+        
+        # ---------------------------------------------------------
         # PHASE 5: Visualization & Plotting
         # ---------------------------------------------------------
         print_header(5, "Visualization & Plotting")
+        from plots import plot_training_curves, plot_risk_coverage, plot_hardware_metrics
         plot_training_curves()
         plot_risk_coverage()
         plot_hardware_metrics()
+        
+        # ---------------------------------------------------------
+        # PHASE 6: Multi-Agent Governance Pipeline
+        # ---------------------------------------------------------
+        print_header(6, "Multi-Agent Governance Execution")
+        run_agent_pipeline()
         
         # ---------------------------------------------------------
         # DONE

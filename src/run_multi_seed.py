@@ -45,9 +45,12 @@ MODEL_NAMES = list(EVAL_MODELS.keys())
 
 def evaluate_all_models(device):
     """Evaluate all 6 models and return metrics dict."""
-    _, _, X_test_np, _, _, y_test_np, _ = load_data("data/creditcard.csv")
+    _, X_val_np, X_test_np, _, y_val_np, y_test_np, _ = load_data()
+    X_val = torch.tensor(X_val_np, dtype=torch.float32).to(device)
     X_test = torch.tensor(X_test_np, dtype=torch.float32).to(device)
+    y_val = y_val_np
     y_test = y_test_np
+    input_dim = X_test_np.shape[1]
 
     results = {}
     for name, config in EVAL_MODELS.items():
@@ -56,12 +59,12 @@ def evaluate_all_models(device):
             continue
 
         if config["architecture"] == "baseline":
-            model = BaselineModel(input_dim=30, dropout=0.0).to(device)
+            model = BaselineModel(input_dim=input_dim, dropout=0.0).to(device)
         else:
-            model = AbstentionModel(input_dim=30, dropout=0.0).to(device)
+            model = AbstentionModel(input_dim=input_dim, dropout=0.0).to(device)
 
         model.load_state_dict(torch.load(resolve_path(config["file"]), map_location=device, weights_only=True))
-        metrics = evaluate_model(model, X_test, y_test, device, config["has_abstain"])
+        metrics = evaluate_model(model, X_test, y_test, X_val, y_val, device, config["has_abstain"])
         results[name] = metrics
 
     return results
@@ -85,7 +88,8 @@ def run_single_seed(seed, device):
 
     # Phase 3: Experiments 1-4
     print(f"\n--- Phase 3: Experiments (seed={seed}) ---")
-    X_train, X_val, _, y_train, y_val, _, _ = load_data("data/creditcard.csv")
+    X_train, X_val, _, y_train, y_val, _, _ = load_data()
+    input_dim = X_train.shape[1]
     train_dataset = FraudDataset(X_train, y_train)
     val_dataset = FraudDataset(X_val, y_val)
 
@@ -104,6 +108,7 @@ def run_single_seed(seed, device):
             train_loader=train_loader,
             val_loader=val_loader,
             device=device,
+            input_dim=input_dim,
             use_grad_accum=config["grad_accum"],
             use_mixed_precision=config["mixed_precision"],
             class_weights=class_weights,

@@ -19,3 +19,6 @@ scipy>=1.11.0
 # API serving
 flask>=3.0.0
 flask-cors>=4.0.0
+
+# Dataset download
+kagglehub>=0.2.0

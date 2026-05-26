@@ -112,9 +112,9 @@ def train_abstention(seed=42):
     # Configuration
     # ----------------------------
     BATCH_SIZE = 256
-    EPOCHS = 60
+    EPOCHS = 30
     LR = 0.0001
-    PATIENCE = 10
+    PATIENCE = 5
     DROPOUT = 0.3
     ALPHA = 0.3           # abstention penalty
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -126,7 +126,7 @@ def train_abstention(seed=42):
     # ----------------------------
     # Load Data
     # ----------------------------
-    X_train, X_val, X_test, y_train, y_val, y_test, _ = load_data("data/creditcard.csv")
+    X_train, X_val, X_test, y_train, y_val, y_test, _ = load_data()
 
     train_dataset = FraudDataset(X_train, y_train)
     val_dataset = FraudDataset(X_val, y_val)
@@ -147,7 +147,9 @@ def train_abstention(seed=42):
     # ----------------------------
     # Model: Initialize from baseline (transfer learning)
     # ----------------------------
-    model = AbstentionModel(input_dim=30, dropout=DROPOUT).to(DEVICE)
+    input_dim = X_train.shape[1]
+    print(f"Input dimension: {input_dim}")
+    model = AbstentionModel(input_dim=input_dim, dropout=DROPOUT).to(DEVICE)
 
     # Load pretrained baseline weights for shared layers
     if os.path.exists(resolve_path("baseline_model.pth")):
@@ -172,6 +174,9 @@ def train_abstention(seed=42):
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=3
     )
+    
+    # Initialize Mixed Precision GradScaler
+    scaler = torch.amp.GradScaler(DEVICE.type, enabled=(DEVICE.type == 'cuda'))
 
     # ----------------------------
     # Metrics CSV
@@ -206,12 +211,23 @@ def train_abstention(seed=42):
             x, y = x.to(DEVICE), y.to(DEVICE)
 
             optimizer.zero_grad()
-            outputs = model(x)
-            loss = dac_loss(outputs, y, ALPHA, class_weights)
-            loss.backward()
+            
+            # Mixed Precision Forward Pass
+            with torch.amp.autocast(DEVICE.type, enabled=(DEVICE.type == 'cuda')):
+                outputs = model(x)
+                loss = dac_loss(outputs, y, ALPHA, class_weights)
+                
+            # Mixed Precision Backward Pass
+            scaler.scale(loss).backward()
 
+            # Unscale gradients before clipping
+            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
+            
+            # Step and update scaler
+            scaler.step(optimizer)
+            scaler.update()
+            
             train_loss += loss.item()
 
         train_loss /= len(train_loader)

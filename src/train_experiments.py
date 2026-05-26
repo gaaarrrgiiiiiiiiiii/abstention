@@ -30,12 +30,13 @@ def run_experiment(
     train_loader,
     val_loader,
     device,
+    input_dim,
     use_grad_accum=False,
     use_mixed_precision=False,
-    epochs=60,
+    epochs=10,
     lr=0.0001,
     alpha=0.3,
-    patience=10,
+    patience=3,
     accum_steps=4,
     class_weights=None,
     seed=42,
@@ -54,7 +55,7 @@ def run_experiment(
     # ----------------------------
     # Model
     # ----------------------------
-    model = AbstentionModel(input_dim=30, dropout=0.3).to(device)
+    model = AbstentionModel(input_dim=input_dim, dropout=0.3).to(device)
 
     # Transfer baseline weights if available
     if os.path.exists(resolve_path("baseline_model.pth")):
@@ -304,7 +305,7 @@ def run_all_experiments():
 
     print(f"Device: {DEVICE}")
 
-    X_train, X_val, X_test, y_train, y_val, y_test, _ = load_data("data/creditcard.csv")
+    X_train, X_val, X_test, y_train, y_val, y_test, _ = load_data()
 
     train_dataset = FraudDataset(X_train, y_train)
     val_dataset = FraudDataset(X_val, y_val)
@@ -325,11 +326,14 @@ def run_all_experiments():
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=256, shuffle=False)
 
+        input_dim = X_train.shape[1]
+
         best_loss = run_experiment(
             exp_id=exp_id,
             train_loader=train_loader,
             val_loader=val_loader,
             device=DEVICE,
+            input_dim=input_dim,
             use_grad_accum=config["grad_accum"],
             use_mixed_precision=config["mixed_precision"],
             class_weights=class_weights,

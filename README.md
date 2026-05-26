@@ -71,33 +71,39 @@ Where `α = 0.3` controls the cost of abstaining — lower values allow the mode
 ```
 abstention/
 ├── data/
-│   └── creditcard.csv          # Dataset (not included — see Setup)
+│   └── creditcard.csv              # Dataset (not included — see Setup)
 ├── src/
-│   ├── seed.py                 # Centralized reproducibility seeds
-│   ├── dataset.py              # Data loading, splitting, scaling
-│   ├── baseline_model.py       # 2-class MLP architecture
-│   ├── abstention_model.py     # 3-class MLP with abstain neuron
-│   ├── train_baseline.py       # Phase 1: Baseline training
-│   ├── train_abstention.py     # Phase 2: DAC training + loss function
-│   ├── train_experiments.py    # Phase 3: Hardware simulation experiments
-│   ├── evaluation.py           # Phase 4: Metrics + confusion matrices
-│   ├── metrics.py              # Coverage, selective risk, ECE calculations
-│   ├── plots.py                # Phase 5: Matplotlib visualizations
-│   ├── run_all.py              # Master pipeline orchestrator
-│   └── run_multi_seed.py       # Multi-seed validation (3 seeds + t-tests)
+│   ├── seed.py                     # Centralized reproducibility seeds
+│   ├── dataset.py                  # Data loading, splitting, scaling
+│   ├── baseline_model.py           # 2-class MLP architecture
+│   ├── abstention_model.py         # 3-class MLP with abstain neuron
+│   ├── train_baseline.py           # Phase 1: Baseline training
+│   ├── train_abstention.py         # Phase 2: DAC training + loss function
+│   ├── train_experiments.py        # Phase 3: Hardware simulation experiments
+│   ├── evaluation.py               # Phase 4: Metrics + confusion matrices
+│   ├── metrics.py                  # Coverage, selective risk, ECE calculations
+│   ├── plots.py                    # Phase 5: Matplotlib visualizations
+│   ├── run_all.py                  # Master pipeline orchestrator
+│   └── run_multi_seed.py           # Multi-seed validation (3 seeds + t-tests)
 ├── api/
-│   └── app.py                  # Flask REST API for serving predictions
-├── results/                    # Training metrics CSVs + plots (generated)
-├── frontend/                   # Prediction UI (HTML/CSS/JS + Chart.js)
-│   ├── index.html              # Dynamic prediction form & results
-│   ├── css/style.css           # White & blue design system
-│   ├── js/app.js               # API integration & rendering
-│   ├── js/charts.js            # Dashboard chart logic
-│   └── data/aggregate.py       # CSV → JSON converter
-├── methodology_decisions.md     # Research backing document
-├── enhancements.md             # Production readiness roadmap
-├── requirements.txt            # Pinned dependencies
-├── LICENSE                     # MIT License
+│   └── app.py                      # Flask REST API for serving predictions
+├── results/                        # Training metrics CSVs + plots (generated)
+├── frontend/                       # Prediction UI (HTML/CSS/JS + Chart.js)
+│   ├── index.html                  # Dynamic prediction form & results
+│   ├── css/style.css               # White & blue design system
+│   ├── js/app.js                   # API integration & rendering
+│   ├── js/charts.js                # Dashboard chart logic
+│   └── data/
+│       ├── aggregate.py            # CSV → JSON converter
+│       └── results.json            # Aggregated results (generated)
+├── abstention_paper.tex            # IEEE Access research paper (LaTeX)
+├── methodology_decisions.md        # Research backing document
+├── enhancements.md                 # Production readiness roadmap
+├── abstention_model.pth            # Trained DAC model weights (generated)
+├── baseline_model.pth              # Trained baseline model weights (generated)
+├── scaler.joblib                   # Fitted StandardScaler (generated)
+├── requirements.txt                # Pinned dependencies
+├── LICENSE                         # MIT License
 ├── .gitignore
 └── README.md
 ```

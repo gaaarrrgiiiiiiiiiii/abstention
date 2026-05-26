@@ -63,7 +63,7 @@ def train_baseline(seed=42):
     # ----------------------------
     # Load Data
     # ----------------------------
-    X_train, X_val, X_test, y_train, y_val, y_test, scaler = load_data("data/creditcard.csv")
+    X_train, X_val, X_test, y_train, y_val, y_test, scaler = load_data()
 
     # Persist the fitted scaler for API serving (avoids re-reading CSV)
     scaler_path = resolve_path("scaler.joblib")
@@ -83,7 +83,9 @@ def train_baseline(seed=42):
     # ----------------------------
     # Model
     # ----------------------------
-    model = BaselineModel(input_dim=30, dropout=DROPOUT).to(DEVICE)
+    input_dim = X_train.shape[1]
+    print(f"Input dimension: {input_dim}")
+    model = BaselineModel(input_dim=input_dim, dropout=DROPOUT).to(DEVICE)
 
     # ----------------------------
     # Class Weights (handle imbalance)
@@ -92,7 +94,7 @@ def train_baseline(seed=42):
     n_fraud = sum(y_train == 1)
     weight_fraud = n_legit / n_fraud  # ~577
     # Cap at 100 — extreme weights (500+) cause noisy val loss on imbalanced data
-    weights = torch.tensor([1.0, min(weight_fraud, 100.0)]).to(DEVICE)
+    weights = torch.tensor([1.0, min(weight_fraud, 100.0)], dtype=torch.float32).to(DEVICE)
     criterion = nn.CrossEntropyLoss(weight=weights)
     print(f"Class weights: [1.0, {weights[1].item():.1f}]")
 
