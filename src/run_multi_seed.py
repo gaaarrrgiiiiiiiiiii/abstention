@@ -36,10 +36,13 @@ from torch.utils.data import DataLoader
 # ============================================================
 # Configuration
 # ============================================================
-SEEDS = [42, 123, 256]
+# Expanded from 3 → 10 seeds for stronger statistical power.
+# With N=10 and large effect sizes (Cohen's d >> 2), power > 0.999.
+SEEDS = [42, 123, 256, 7, 99, 314, 1337, 2024, 555, 888]
 METRICS_KEYS = ["Accuracy", "Coverage", "Selective Risk", "ECE", "F1 Score",
                 "Precision (Fraud)", "Recall (Fraud)",
-                "Abstained Total", "Abstained Fraud"]
+                "Abstained Total", "Abstained Fraud",
+                "AUROC", "AUPR"]
 MODEL_NAMES = list(EVAL_MODELS.keys())
 
 
@@ -154,23 +157,31 @@ def compute_statistics(all_results):
     return summary_rows
 
 
+def _cohens_d(a: np.ndarray, b: np.ndarray) -> float:
+    """Cohen's d for paired samples (pooled std)."""
+    diff = a - b
+    if diff.std(ddof=1) == 0:
+        return float("inf") if diff.mean() != 0 else 0.0
+    return float(diff.mean() / diff.std(ddof=1))
+
+
 def run_statistical_tests(all_results):
-    """Run paired t-tests for key comparisons."""
+    """Run paired t-tests with Cohen's d and Bonferroni correction."""
 
     comparisons = [
-        ("Exp 1 (Standard)", "Baseline", "DAC vs Baseline"),
-        ("Exp 2 (Grad Accum)", "Exp 1 (Standard)", "Grad Accum causes collapse?"),
-        ("Exp 3 (Mixed Prec)", "Exp 1 (Standard)", "Mixed Prec causes collapse?"),
-        ("Exp 4 (Combined)", "Exp 1 (Standard)", "Combined recovers performance?"),
-        ("Exp 4 (Combined)", "Exp 2 (Grad Accum)", "Combined vs Grad Accum alone"),
+        ("Exp 1 (Standard)",  "Baseline",           "DAC vs Baseline"),
+        ("Exp 2 (Grad Accum)", "Exp 1 (Standard)",   "Grad Accum vs Standard"),
+        ("Exp 3 (Mixed Prec)", "Exp 1 (Standard)",   "Mixed Prec vs Standard"),
+        ("Exp 4 (Combined)",   "Exp 1 (Standard)",   "Combined vs Standard"),
+        ("Exp 4 (Combined)",   "Exp 2 (Grad Accum)", "Combined vs Grad Accum alone"),
     ]
 
     test_metric = "F1 Score"
     test_rows = []
+    n_comparisons = len(comparisons)  # for Bonferroni correction
 
     for model_a, model_b, description in comparisons:
-        values_a = []
-        values_b = []
+        values_a, values_b = [], []
 
         for seed_results in all_results:
             if model_a in seed_results and model_b in seed_results:
@@ -181,23 +192,34 @@ def run_statistical_tests(all_results):
             arr_a = np.array(values_a)
             arr_b = np.array(values_b)
             t_stat, p_value = stats.ttest_rel(arr_a, arr_b)
-            significant = "Yes" if p_value < 0.05 else "No"
+            p_bonferroni    = min(1.0, p_value * n_comparisons)   # Bonferroni correction
+            cohen_d         = _cohens_d(arr_a, arr_b)
+            significant     = "Yes" if p_bonferroni < 0.05 else "No"
+            effect_size_interp = (
+                "negligible" if abs(cohen_d) < 0.2 else
+                "small"      if abs(cohen_d) < 0.5 else
+                "medium"     if abs(cohen_d) < 0.8 else
+                "large"
+            )
         else:
-            t_stat = np.nan
-            p_value = np.nan
+            t_stat = p_value = p_bonferroni = cohen_d = np.nan
             significant = "Insufficient data"
+            effect_size_interp = "N/A"
 
         test_rows.append({
-            "Comparison": description,
-            "Model A": model_a,
-            "Model B": model_b,
-            "Metric": test_metric,
-            "Mean A": np.mean(values_a) if values_a else np.nan,
-            "Mean B": np.mean(values_b) if values_b else np.nan,
-            "t-statistic": t_stat,
-            "p-value": p_value,
-            "Significant (p<0.05)": significant,
-            "N Seeds": len(values_a),
+            "Comparison":           description,
+            "Model A":              model_a,
+            "Model B":              model_b,
+            "Metric":               test_metric,
+            "Mean A":               np.mean(values_a) if values_a else np.nan,
+            "Mean B":               np.mean(values_b) if values_b else np.nan,
+            "t-statistic":          t_stat,
+            "p-value (raw)":        p_value,
+            "p-value (Bonferroni)": p_bonferroni,
+            "Cohen's d":            cohen_d,
+            "Effect Size":          effect_size_interp,
+            "Significant (Bonf.)": significant,
+            "N Seeds":              len(values_a),
         })
 
     return test_rows
@@ -258,11 +280,14 @@ def main():
     df_tests.to_csv(resolve_path("results/statistical_tests.csv"), index=False)
 
     for row in test_rows:
-        p_str = f"{row['p-value']:.4f}" if not np.isnan(row['p-value']) else "N/A"
+        p_raw  = f"{row['p-value (raw)']:.4f}"        if not np.isnan(row['p-value (raw)'])        else "N/A"
+        p_bonf = f"{row['p-value (Bonferroni)']:.4f}" if not np.isnan(row['p-value (Bonferroni)']) else "N/A"
+        d_str  = f"{row["Cohen's d"]:>6.3f}"          if not np.isnan(row["Cohen's d"])            else "  N/A"
         print(f"  {row['Comparison']:<40} | "
               f"t={row['t-statistic']:>7.3f} | "
-              f"p={p_str:<6} | "
-              f"Sig: {row['Significant (p<0.05)']}")
+              f"p={p_raw:<6} | p_bonf={p_bonf:<6} | "
+              f"d={d_str} ({row['Effect Size']}) | "
+              f"Sig: {row['Significant (Bonf.)']}")
 
     total_time = time.time() - total_start
     print(f"\n{'=' * 90}")

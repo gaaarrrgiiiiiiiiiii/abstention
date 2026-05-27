@@ -2,7 +2,10 @@ import torch
 import numpy as np
 import pandas as pd
 import os
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score, f1_score, precision_score, recall_score,
+    confusion_matrix, roc_auc_score, average_precision_score
+)
 
 from dataset import load_data, resolve_path
 from baseline_model import BaselineModel
@@ -142,6 +145,32 @@ def evaluate_model(model, X_test, y_test, X_val, y_val, device, has_abstain):
         "CM_FN": int(cm[1, 0]),
         "CM_TP": int(cm[1, 1]),
     }
+
+    # ── AUROC / AUPR / Brier Score (on non-abstained samples only) ────────────
+    # These are threshold-free metrics essential for imbalanced fraud detection.
+    if has_abstain:
+        fraud_probs = probs_np[:, 1] / (probs_np[:, 0] + probs_np[:, 1] + 1e-8)
+    else:
+        fraud_probs = probs_np[:, 1]
+
+    mask_eval = non_abstain_mask  # already computed above
+    if mask_eval.sum() > 0 and len(np.unique(y_test[mask_eval])) > 1:
+        try:
+            auroc = roc_auc_score(y_test[mask_eval], fraud_probs[mask_eval])
+        except Exception:
+            auroc = 0.0
+        try:
+            aupr  = average_precision_score(y_test[mask_eval], fraud_probs[mask_eval])
+        except Exception:
+            aupr  = 0.0
+        # Brier score: mean squared error between predicted fraud prob and binary label
+        brier = float(np.mean((fraud_probs[mask_eval] - y_test[mask_eval].astype(np.float32)) ** 2))
+    else:
+        auroc = aupr = brier = 0.0
+
+    metrics["AUROC"]       = float(auroc)
+    metrics["AUPR"]        = float(aupr)
+    metrics["Brier Score"] = float(brier)
     
     # ----------------------------
     # Conformal Prediction Eval
@@ -271,10 +300,23 @@ def train_decision_agent(model, X_train_val, y_train_val, device, epochs=5, lr=1
     for epoch in range(epochs):
         agent.policy_net.train()
         epoch_rewards = 0
-        
+
         for i in range(num_samples):
             feat = X_train_val[i:i+1]
-            unc = torch.tensor([[aleatoric_unc[i], epistemic_unc[i], 0.5]], dtype=torch.float32).to(device)
+
+            # Heuristic verbalized uncertainty: margin from decision boundary
+            # Replaces the old hardcoded 0.5 placeholder.
+            base_prob_i = float(max_probs[i])
+            epi_i       = float(epistemic_unc[i])
+            margin      = abs(base_prob_i - 0.5)
+            margin_score = 1.0 - float(np.exp(-6 * margin))
+            epi_penalty  = float(np.clip(epi_i * 4, 0, 1))
+            verb_unc_i   = float(np.clip(1.0 - (margin_score - 0.5 * epi_penalty), 0.05, 0.95))
+
+            unc = torch.tensor(
+                [[aleatoric_unc[i], epistemic_unc[i], verb_unc_i]],
+                dtype=torch.float32
+            ).to(device)
             
             action = agent.select_action(feat, unc)
             
@@ -314,7 +356,19 @@ def evaluate_decision_agent(agent, model, X_test, y_test, device):
     with torch.no_grad():
         for i in range(num_samples):
             feat = X_test[i:i+1]
-            unc = torch.tensor([[aleatoric_unc[i], epistemic_unc[i], 0.5]], dtype=torch.float32).to(device)
+
+            # Same heuristic as training
+            base_prob_i  = float(max_probs[i])
+            epi_i        = float(epistemic_unc[i])
+            margin       = abs(base_prob_i - 0.5)
+            margin_score = 1.0 - float(np.exp(-6 * margin))
+            epi_penalty  = float(np.clip(epi_i * 4, 0, 1))
+            verb_unc_i   = float(np.clip(1.0 - (margin_score - 0.5 * epi_penalty), 0.05, 0.95))
+
+            unc = torch.tensor(
+                [[aleatoric_unc[i], epistemic_unc[i], verb_unc_i]],
+                dtype=torch.float32
+            ).to(device)
             
             abstain_prob = agent.policy_net(feat, unc).item()
             action = 1 if abstain_prob > 0.5 else 0
@@ -484,24 +538,26 @@ def run_comprehensive_evaluation():
     print("\n" + "=" * 80)
     print("FINAL EVALUATION RESULTS")
     print("=" * 80)
-    
-    # Print main metrics table
-    format_str = "{:<22} | {:>8.4f} | {:>8.4f} | {:>14.4f} | {:>6.4f} | {:>8.4f} | {:>10.4f} | {:>10.4f}"
-    print("{:<22} | {:>8} | {:>8} | {:>14} | {:>6} | {:>8} | {:>10} | {:>10}".format(
-        "Model Name", "Accuracy", "Coverage", "Selective Risk", "ECE", "F1 Score", "Conf. Cov.", "Conf. Set Size"
+
+    hdr_fmt = "{:<22} | {:>8} | {:>8} | {:>14} | {:>6} | {:>8} | {:>7} | {:>7} | {:>7}"
+    row_fmt = "{:<22} | {:>8.4f} | {:>8.4f} | {:>14.4f} | {:>6.4f} | {:>8.4f} | {:>7.4f} | {:>7.4f} | {:>7.4f}"
+    print(hdr_fmt.format(
+        "Model Name", "Accuracy", "Coverage", "Selective Risk",
+        "ECE", "F1 Score", "AUROC", "AUPR", "Brier"
     ))
     print("-" * 110)
-    
-    for _, row in df_main.iterrows():
-        print(format_str.format(
-            row["Model Name"],
-            row["Accuracy"],
-            row["Coverage"],
-            row["Selective Risk"],
-            row["ECE"],
-            row["F1 Score"],
-            row["Conformal Coverage"],
-            row["Conformal Avg Set Size"]
+
+    for _, row in df_results.iterrows():
+        print(row_fmt.format(
+            str(row["Model Name"])[:22],
+            row.get("Accuracy", 0.0),
+            row.get("Coverage", 0.0),
+            row.get("Selective Risk", 0.0),
+            row.get("ECE", 0.0),
+            row.get("F1 Score", 0.0),
+            row.get("AUROC", 0.0),
+            row.get("AUPR", 0.0),
+            row.get("Brier Score", 0.0),
         ))
         
     # Print confusion matrices

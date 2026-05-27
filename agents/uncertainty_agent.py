@@ -25,16 +25,20 @@ class UncertaintyAgent:
 
     def get_verbalized_confidence(self, features_dict, base_prob, epistemic_unc):
         """
-        Queries an LLM to state its confidence on whether the transaction is fraudulent.
+        Queries an LLM (or heuristic fallback) for a verbalized confidence score
+        indicating how confident the model should be about this transaction.
+
+        Returns a float in [0, 1] where 1 = very confident, 0 = very uncertain.
         """
         if not self.use_llm:
-            # Fallback heuristic
-            if base_prob > 0.8 and epistemic_unc < 0.05:
-                return 0.9 # High confidence
-            elif base_prob < 0.2 and epistemic_unc < 0.05:
-                return 0.9 # High confidence
-            else:
-                return 0.4 # Low confidence
+            # Improved heuristic fallback (replaces the constant 0.5 placeholder).
+            # High confidence = base_prob far from 0.5 AND low epistemic uncertainty.
+            # Use a sigmoid-like function of distance from the decision boundary.
+            margin = abs(base_prob - 0.5)                     # 0..0.5
+            margin_score = 1.0 - np.exp(-6 * margin)          # sigmoid-like, 0..1
+            epi_penalty  = np.clip(epistemic_unc * 4, 0, 1)   # penalise high epistemic unc
+            confidence   = float(np.clip(margin_score - 0.5 * epi_penalty, 0.05, 0.95))
+            return confidence
 
         # Prepare a prompt
         prompt = f"""<|system|>
@@ -95,8 +99,11 @@ What is your confidence score?
             else:
                 verb_unc = 0.5
                 
-            # Fusion: simple weighted average (weights can be learned later via gating network)
-            # w1: aleatoric, w2: epistemic, w3: verbalized
-            composite_unc[i] = 0.4 * aleatoric_unc + 0.4 * epi_u + 0.2 * verb_unc
+            # Fusion: weighted average (aleatoric, epistemic, verbalized)
+            # Weights reflect reliability of each source:
+            #   aleatoric  — direct from model softmax, most reliable
+            #   epistemic   — ensemble disagreement, reliable but costly
+            #   verbalized  — heuristic/LLM, less reliable
+            composite_unc[i] = 0.45 * aleatoric_unc + 0.40 * epi_u + 0.15 * verb_unc
             
         return composite_unc

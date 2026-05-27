@@ -18,20 +18,25 @@
     let sampleData = [];
     let predictionHistory = [];
     let confidenceChart = null;
+    let attributionChart = null;
+    let lastFeatures = [];          // stored after every prediction for explain reuse
 
     // ============================================================
     // DOM References
     // ============================================================
-    const $featureGrid   = document.getElementById('feature-grid');
-    const $sampleButtons = document.getElementById('sample-buttons');
-    const $predictForm   = document.getElementById('predict-form');
-    const $btnPredict    = document.getElementById('btn-predict');
-    const $btnClear      = document.getElementById('btn-clear');
-    const $resultPanel   = document.getElementById('result-panel');
-    const $historyTbody  = document.getElementById('history-tbody');
-    const $historyEmpty  = document.getElementById('history-empty');
-    const $statFeatures  = document.getElementById('stat-features');
-    const $statStatus    = document.getElementById('stat-status');
+    const $featureGrid       = document.getElementById('feature-grid');
+    const $sampleButtons      = document.getElementById('sample-buttons');
+    const $predictForm        = document.getElementById('predict-form');
+    const $btnPredict         = document.getElementById('btn-predict');
+    const $btnClear           = document.getElementById('btn-clear');
+    const $btnExplain         = document.getElementById('btn-explain');
+    const $resultPanel        = document.getElementById('result-panel');
+    const $attributionPanel   = document.getElementById('attribution-panel');
+    const $historyTbody       = document.getElementById('history-tbody');
+    const $historyEmpty       = document.getElementById('history-empty');
+    const $statFeatures       = document.getElementById('stat-features');
+    const $statStatus         = document.getElementById('stat-status');
+    const $themeToggle        = document.getElementById('theme-toggle');
 
     // ============================================================
     // Initialization
@@ -62,6 +67,27 @@
         // Event listeners
         $predictForm.addEventListener('submit', handlePredict);
         $btnClear.addEventListener('click', clearForm);
+        $btnExplain.addEventListener('click', handleExplain);
+
+        // ── Dark mode toggle (T19) ──────────────────────────────────
+        if ($themeToggle) {
+            $themeToggle.addEventListener('click', () => {
+                const current = document.documentElement.getAttribute('data-theme') || 'light';
+                const next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem('theme', next);
+
+                // Redraw charts with theme-aware colors
+                if (confidenceChart) {
+                    updateChartTheme(confidenceChart);
+                    confidenceChart.update();
+                }
+                if (attributionChart) {
+                    updateChartTheme(attributionChart);
+                    attributionChart.update();
+                }
+            });
+        }
 
         // Smooth scroll nav
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -75,6 +101,32 @@
                 link.classList.add('active');
             });
         });
+    }
+
+    // ============================================================
+    // Theme Helpers
+    // ============================================================
+    function isDark() {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    }
+
+    function themeColor(lightVal, darkVal) {
+        return isDark() ? darkVal : lightVal;
+    }
+
+    function updateChartTheme(chart) {
+        if (!chart) return;
+        const textColor = themeColor('#4A5568', '#8A97B8');
+        const gridColor = themeColor('rgba(0,0,0,0.06)', 'rgba(255,255,255,0.06)');
+        if (chart.options.plugins && chart.options.plugins.legend) {
+            chart.options.plugins.legend.labels.color = textColor;
+        }
+        if (chart.options.scales) {
+            Object.values(chart.options.scales).forEach(axis => {
+                if (axis.ticks) axis.ticks.color = textColor;
+                if (axis.grid)  axis.grid.color  = gridColor;
+            });
+        }
     }
 
     // ============================================================
@@ -215,13 +267,54 @@
 
         try {
             const result = await apiPost('/predict', { features });
+            lastFeatures = features;    // store for re-use by Explain
             renderResult(result);
             addToHistory(result);
+            // Hide old attribution panel when a new prediction is made
+            if ($attributionPanel) $attributionPanel.style.display = 'none';
         } catch (err) {
             showToast('Prediction failed: ' + err.message);
         } finally {
             $btnPredict.classList.remove('loading');
             $btnPredict.disabled = false;
+        }
+    }
+
+    // ============================================================
+    // Handle Explain (T18)
+    // ============================================================
+    async function handleExplain() {
+        if (!lastFeatures.length) {
+            showToast('Run a prediction first, then click Explain.');
+            return;
+        }
+
+        // Loading state on Explain button
+        $btnExplain.classList.add('loading');
+        $btnExplain.disabled = true;
+        if ($attributionPanel) $attributionPanel.style.display = 'none';
+
+        try {
+            const result = await apiPost('/explain', {
+                features: lastFeatures,
+                top_n: 15
+            });
+            renderAttributionChart(result);
+        } catch (err) {
+            // Show error inside panel
+            if ($attributionPanel) {
+                $attributionPanel.style.display = 'block';
+                const wrapper = $attributionPanel.querySelector('.attribution-chart-wrapper');
+                if (wrapper) {
+                    wrapper.innerHTML = `<div class="attribution-error">Explain failed: ${err.message}<br>
+                        <small>The API server may not have the model loaded. Check <code>/api/ready</code>.</small></div>`;
+                }
+            } else {
+                showToast('Explain failed: ' + err.message);
+            }
+        } finally {
+            $btnExplain.classList.remove('loading');
+            $btnExplain.disabled = false;
         }
     }
 
@@ -289,6 +382,118 @@
     }
 
     // ============================================================
+    // Attribution Horizontal Bar Chart (T18)
+    // ============================================================
+    function renderAttributionChart(data) {
+        if (!$attributionPanel) return;
+
+        $attributionPanel.style.display = 'block';
+        $attributionPanel.style.animation = 'none';
+        void $attributionPanel.offsetHeight;
+        $attributionPanel.style.animation = 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+
+        const attrs = data.attributions || [];
+        const labels  = attrs.map(a => a.feature);
+        const scores  = attrs.map(a => a.score);
+        const colors  = scores.map(s => {
+            if (s >= 0) return 'rgba(51, 102, 204, 0.75)';   // blue for positive
+            return 'rgba(179, 38, 30, 0.75)';                  // red for negative
+        });
+        const hoverColors = scores.map(s => {
+            if (s >= 0) return 'rgba(51, 102, 204, 1)';
+            return 'rgba(179, 38, 30, 1)';
+        });
+
+        const canvas = document.getElementById('attributionChart');
+        const canvasWrapper = canvas.parentElement;
+
+        // Dynamic height: 30px per bar + padding
+        const chartHeight = Math.max(300, labels.length * 34 + 60);
+        canvas.style.height = chartHeight + 'px';
+        canvas.style.width  = '100%';
+        canvasWrapper.style.minHeight = chartHeight + 'px';
+
+        const ctx = canvas.getContext('2d');
+        if (attributionChart) {
+            attributionChart.destroy();
+            attributionChart = null;
+        }
+
+        const textColor = themeColor('#4A5568', '#8A97B8');
+        const gridColor = themeColor('rgba(0,0,0,0.06)', 'rgba(255,255,255,0.06)');
+        const bgColor   = themeColor('#FFFFFF', '#1A1E2E');
+
+        attributionChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: `Attribution → ${data.prediction}`,
+                    data: scores,
+                    backgroundColor: colors,
+                    hoverBackgroundColor: hoverColors,
+                    borderRadius: 4,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                indexAxis: 'y',       // horizontal bar chart
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: textColor,
+                            font: {
+                                family: "'Times New Roman', Times, Georgia, serif",
+                                size: 12,
+                                weight: '600'
+                            },
+                            padding: 12
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: bgColor,
+                        borderColor: themeColor('#E1E5EB', '#2A3050'),
+                        borderWidth: 1,
+                        titleColor: textColor,
+                        bodyColor: textColor,
+                        titleFont: { family: "'Times New Roman', Times, Georgia, serif", size: 12 },
+                        bodyFont:  { family: "'Times New Roman', Times, Georgia, serif", size: 12 },
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: ctx => {
+                                const v = ctx.parsed.x;
+                                const dir = v >= 0 ? '▲ pushes toward' : '▼ pushes against';
+                                return ` ${dir} ${data.prediction}: ${v.toFixed(6)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks:  { color: textColor, font: { size: 11 } },
+                        grid:   { color: gridColor },
+                        border: { color: gridColor }
+                    },
+                    y: {
+                        ticks:  { color: textColor, font: { size: 11 } },
+                        grid:   { color: 'transparent' },
+                        border: { color: gridColor }
+                    }
+                },
+                animation: { duration: 600 }
+            }
+        });
+
+        // Scroll attribution panel into view
+        $attributionPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ============================================================
     // Confidence Doughnut Chart
     // ============================================================
     function renderConfidenceChart(confidence) {
@@ -308,12 +513,8 @@
                         (confidence.fraud * 100).toFixed(2),
                         (confidence.abstain * 100).toFixed(2)
                     ],
-                    backgroundColor: [
-                        '#1B7A4A',
-                        '#B3261E',
-                        '#B8860B'
-                    ],
-                    borderColor: '#FFFFFF',
+                    backgroundColor: ['#1B7A4A', '#B3261E', '#B8860B'],
+                    borderColor: themeColor('#FFFFFF', '#1A1E2E'),
                     borderWidth: 3,
                     hoverBorderWidth: 0,
                     hoverOffset: 8
@@ -331,14 +532,14 @@
                                 size: 13,
                                 weight: '600'
                             },
-                            color: '#4A5568',
+                            color: themeColor('#4A5568', '#8A97B8'),
                             padding: 16,
                             usePointStyle: true,
                             pointStyleWidth: 10
                         }
                     },
                     tooltip: {
-                        backgroundColor: '#1F2733',
+                        backgroundColor: themeColor('#1F2733', '#0F1117'),
                         titleFont: {
                             family: "'Times New Roman', Times, Georgia, serif",
                             size: 13
@@ -384,7 +585,7 @@
         }
 
         $historyEmpty.style.display = 'none';
-        $historyTbody.parentElement.style.display = 'table';
+        $historyTbody.closest('table').style.display = 'table';
         $historyTbody.innerHTML = '';
 
         predictionHistory.forEach((entry, idx) => {
